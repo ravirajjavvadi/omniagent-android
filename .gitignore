@@ -1,0 +1,43 @@
+# Android build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Build directories
+/build/
+app/build/
+.gradle/
+local.properties
+
+# Android Studio / IntelliJ IDEA
+*.iml
+.idea/
+*.swp
+.DS_Store
+
+# CMake build cache
+app/.cxx/
+
+# AI Model files (too large for git — download separately)
+*.gguf
+*.ggml
+*.bin
+*.pt
+*.safetensors
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Keystore files (keep private)
+*.jks
+*.keystore
+
+# NDK and profiling artifacts
+*.hprof
+captures/
+
+# Dependency lock files (generated)
+gradle/wrapper/gradle-wrapper.jar
