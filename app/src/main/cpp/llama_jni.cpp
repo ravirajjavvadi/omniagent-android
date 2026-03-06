@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <android/log.h>
+#include <atomic>
 #include "llama.h"
 
 #include <mutex>
@@ -17,6 +18,7 @@ static llama_context * g_ctx = nullptr;
 static JavaVM * g_jvm = nullptr; // Store JVM for cross-thread callbacks
 static char g_loaded_path[2048] = {0}; // Track currently loaded model path
 static std::mutex g_mutex; // Protect singleton access
+static std::atomic<bool> g_stop_requested(false); // Flag to stop inference
 
 // Called when the library is first loaded
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -72,12 +74,13 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
         return false;
     }
     LOGI("Model file loaded successfully");
+    g_stop_requested = false;
 
     // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 1024;
-    ctx_params.n_threads = 4;
-    ctx_params.n_threads_batch = 4;
+    ctx_params.n_threads = 6;       // Boosted to 6 for faster generation
+    ctx_params.n_threads_batch = 6; // Boosted to 6 for faster prefill/thinking
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {
@@ -140,6 +143,7 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         JNIEnv *env, jobject thiz_original, jstring prompt) {
 
     std::lock_guard<std::mutex> lock(g_mutex); // Prevent concurrent inference
+    g_stop_requested = false; // Reset stop flag before starting
 
     if (g_ctx == nullptr || g_model == nullptr) {
         LOGE("Streaming failed: Model/Context not initialized");
@@ -217,6 +221,13 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
     llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
 
     for (; n_decode < n_max_tokens; n_decode++) {
+
+        // Check if user requested to stop
+        if (g_stop_requested.load()) {
+            LOGI("Inference stopped by user request at step %d", n_decode);
+            break;
+        }
+
         // Ensure we don't overflow the KV cache context
         if (n_pos + batch.n_tokens > llama_n_ctx(g_ctx)) {
             LOGW("Context limit reached (%d tokens). Stopping generation.", n_pos);
@@ -330,6 +341,15 @@ Java_com_omniagent_app_engine_LlamaEngine_generateResponseJNI(JNIEnv *env, jobje
 
     llama_sampler_free(sampler);
     return env->NewStringUTF(response.empty() ? "Could not generate a response." : response.c_str());
+}
+
+// ============================================================
+// Stop Inference JNI
+// ============================================================
+extern "C" JNIEXPORT void JNICALL
+Java_com_omniagent_app_engine_LlamaEngine_stopInferenceJNI(JNIEnv *env, jobject thiz) {
+    g_stop_requested = true;
+    LOGI("Stop request received from Kotlin");
 }
 
 // ============================================================

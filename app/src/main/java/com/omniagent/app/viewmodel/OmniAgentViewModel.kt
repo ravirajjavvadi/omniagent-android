@@ -222,6 +222,13 @@ class OmniAgentViewModel(
         _chatMessages.update { it + userMsg }
 
         viewModelScope.launch {
+            // Priority Interrupt: If already processing, stop the old one first
+            if (_uiState.value.isProcessing) {
+                Log.i(TAG, "Priority Interrupt: Stopping active inference for new message.")
+                llamaEngine.stopInference()
+                kotlinx.coroutines.delay(500) // Small breather for native cleanup
+            }
+
             _uiState.update { it.copy(isProcessing = true) }
             try {
                 if (localModelPath != null && java.io.File(localModelPath).exists()) {
@@ -312,6 +319,15 @@ class OmniAgentViewModel(
                 _uiState.update { it.copy(isProcessing = false) }
             }
         }
+    }
+
+    /**
+     * Explicitly stop the current AI generation.
+     */
+    fun stopResponse() {
+        Log.i(TAG, "User requested to stop response.")
+        llamaEngine.stopInference()
+        _uiState.update { it.copy(isProcessing = false) }
     }
 
     /**

@@ -38,6 +38,7 @@ class LlamaEngine {
     external fun generateResponseJNI(prompt: String): String
     external fun generateStreamingResponseJNI(prompt: String): Boolean
     external fun freeModelJNI()
+    external fun stopInferenceJNI()
     external fun forceReleaseJNI()
 
     /**
@@ -93,6 +94,11 @@ class LlamaEngine {
         // Model stays loaded in native memory (singleton).
         // Only called when ViewModel is destroyed.
         streamingListener = null
+    }
+
+    fun stopInference() {
+        stopInferenceJNI()
+        Log.i(TAG, "LlamaEngine stop requested.")
     }
 
     fun forceRelease() {

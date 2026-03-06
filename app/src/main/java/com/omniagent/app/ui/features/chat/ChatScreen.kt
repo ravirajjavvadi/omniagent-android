@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -130,6 +131,19 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium
                             )
+                            Spacer(Modifier.width(8.dp))
+                            Surface(
+                                color = OmniColors.Accent.copy(alpha = 0.2f),
+                                shape = RoundedCornerShape(4.dp)
+                            ) {
+                                Text(
+                                    text = "6 THREADS",
+                                    color = OmniColors.Accent,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -164,18 +178,24 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 
             IconButton(
                 onClick = {
-                    if (inputText.isNotBlank()) {
+                    if (isProcessing.isProcessing) {
+                        viewModel.stopResponse()
+                    } else if (inputText.isNotBlank()) {
                         viewModel.sendMessage(inputText, localModelPath)
                         inputText = ""
                     }
                 },
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(24.dp))
+                    .background(
+                        if (isProcessing.isProcessing) Color.Red.copy(alpha = 0.8f) 
+                        else MaterialTheme.colorScheme.primary, 
+                        RoundedCornerShape(24.dp)
+                    )
                     .size(48.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = "Send",
+                    imageVector = if (isProcessing.isProcessing) Icons.Default.Stop else Icons.Default.Send,
+                    contentDescription = if (isProcessing.isProcessing) "Stop" else "Send",
                     tint = Color.White
                 )
             }
