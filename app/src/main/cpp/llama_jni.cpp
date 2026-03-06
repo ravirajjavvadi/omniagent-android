@@ -4,6 +4,8 @@
 #include <android/log.h>
 #include "llama.h"
 
+#include <mutex>
+
 #define TAG "OmniAgent-Llama"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGW(...) __android_log_print(ANDROID_LOG_WARN, TAG, __VA_ARGS__)
@@ -14,6 +16,7 @@ static llama_model * g_model = nullptr;
 static llama_context * g_ctx = nullptr;
 static JavaVM * g_jvm = nullptr; // Store JVM for cross-thread callbacks
 static char g_loaded_path[2048] = {0}; // Track currently loaded model path
+static std::mutex g_mutex; // Protect singleton access
 
 // Called when the library is first loaded
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
@@ -70,13 +73,11 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     }
     LOGI("Model file loaded successfully");
 
-    // Create context — KEEP n_ctx SMALL to avoid OOM on phones
-    // 1.8GB model (Gemma) + 2048 ctx = ~2.4GB peak → Android kills it
-    // 512 ctx = ~1.95GB peak → survivable
+    // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx = 512;
-    ctx_params.n_threads = 2;       // Fewer threads = lower peak memory
-    ctx_params.n_threads_batch = 2;
+    ctx_params.n_ctx = 1024;
+    ctx_params.n_threads = 4;
+    ctx_params.n_threads_batch = 4;
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {
@@ -91,7 +92,7 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     strncpy(g_loaded_path, model_path, sizeof(g_loaded_path) - 1);
     env->ReleaseStringUTFChars(path, model_path);
 
-    LOGI("Model and context initialized successfully. n_ctx=512, threads=2");
+    LOGI("Model and context initialized successfully. n_ctx=1024, threads=4");
     return true;
 }
 
@@ -137,6 +138,8 @@ static llama_sampler * build_sampler_chain() {
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         JNIEnv *env, jobject thiz_original, jstring prompt) {
+
+    std::lock_guard<std::mutex> lock(g_mutex); // Prevent concurrent inference
 
     if (g_ctx == nullptr || g_model == nullptr) {
         LOGE("Streaming failed: Model/Context not initialized");
@@ -197,16 +200,29 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         return false;
     }
 
-    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
-
-    const int32_t n_max_tokens = 512;
+    const int32_t n_max_tokens = 1024;
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;
 
     LOGI("Streaming started. Prompt tokens: %zu, Max output: %d", tokens.size(), n_max_tokens);
 
+    if (tokens.size() >= llama_n_ctx(g_ctx)) {
+        LOGE("Prompt too long (%zu tokens) for context window (%d)", tokens.size(), llama_n_ctx(g_ctx));
+        llama_sampler_free(sampler);
+        env->DeleteGlobalRef(thiz);
+        return false;
+    }
+
+    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
+
     for (; n_decode < n_max_tokens; n_decode++) {
+        // Ensure we don't overflow the KV cache context
+        if (n_pos + batch.n_tokens > llama_n_ctx(g_ctx)) {
+            LOGW("Context limit reached (%d tokens). Stopping generation.", n_pos);
+            break;
+        }
+
         // Decode the batch
         if (llama_decode(g_ctx, batch) != 0) {
             LOGE("llama_decode failed at step %d", n_decode);
