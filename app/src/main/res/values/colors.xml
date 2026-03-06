@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="omni_bg_dark">#0D1117</color>
+    <color name="omni_surface">#161B22</color>
+    <color name="omni_primary">#58A6FF</color>
+    <color name="omni_secondary">#7EE787</color>
+    <color name="omni_accent">#D2A8FF</color>
+    <color name="omni_warning">#F0883E</color>
+    <color name="omni_danger">#F85149</color>
+    <color name="omni_text">#E6EDF3</color>
+    <color name="omni_text_dim">#8B949E</color>
+</resources>
