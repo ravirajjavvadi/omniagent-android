@@ -9,6 +9,9 @@
 app/build/
 .gradle/
 local.properties
+build_log*.txt
+kotlin_errors.txt
+app/src/main/cpp/llama.zip
 
 # Android Studio / IntelliJ IDEA
 *.iml
