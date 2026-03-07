@@ -297,6 +297,39 @@ class ResumeEngine:
 
         return recs
 
+    def generate_smart_suggestions(self, experience_text):
+        """Analyze work experience and suggest impact-focused re-writing."""
+        suggestions = []
+        if not re.search(r'\d+', experience_text):
+            suggestions.append("Try to quantify your impact with numbers (e.g., 'Managed a team of 5' instead of 'Managed a team')")
+        
+        strong_verbs_found = [v for v in self.ACTION_VERBS if v in experience_text.lower()]
+        if len(strong_verbs_found) < 2:
+            suggestions.append("Use more powerful action verbs: {}".format(", ".join(self.ACTION_VERBS[:3])))
+            
+        return suggestions
+
+    def get_role_recommendations(self, tech_skills):
+        """Determine top career roles based on current tech stack."""
+        roles = {
+            "Full Stack Developer": ["python", "javascript", "react", "sql"],
+            "Mobile Architect": ["kotlin", "android", "swift", "ios"],
+            "DevOps Engineer": ["docker", "kubernetes", "aws", "linux"],
+            "Data Scientist": ["pandas", "tensorflow", "python", "sql"],
+            "Security Analyst": ["cybersecurity", "owasp", "linux", "encryption"]
+        }
+        
+        matches = []
+        flat_skills = [s for k in tech_skills.values() for s in k]
+        
+        for role, reqs in roles.items():
+            matching = [s for s in reqs if s in flat_skills]
+            score = (len(matching) / len(reqs)) * 100
+            if score > 0:
+                matches.append({"role": role, "match_score": round(score, 1)})
+                
+        return sorted(matches, key=lambda x: x['match_score'], reverse=True)
+
 
     def tailor_resume(self, resume_text, job_description):
         """
