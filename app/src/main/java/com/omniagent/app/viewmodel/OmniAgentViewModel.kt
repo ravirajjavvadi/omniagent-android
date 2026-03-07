@@ -335,8 +335,7 @@ class OmniAgentViewModel(
      * Detects the model from the file path and applies the correct template.
      */
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
-        val systemPrompt = "You are a helpful, knowledgeable, and concise AI assistant. " +
-                "Give accurate, direct answers. Avoid repetition. If you don't know, say so honestly."
+        val systemPrompt = "You are a concise AI. Answer directly."
 
         return when {
             // Qwen2.5 chat template

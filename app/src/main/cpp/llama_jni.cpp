@@ -79,8 +79,8 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 1024;
-    ctx_params.n_threads = 6;       // Boosted to 6 for faster generation
-    ctx_params.n_threads_batch = 6; // Boosted to 6 for faster prefill/thinking
+    ctx_params.n_threads = 8;       // Maxed to 8 for ultra speed
+    ctx_params.n_threads_batch = 8; // Maxed to 8 for faster thinking
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {
@@ -95,7 +95,7 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     strncpy(g_loaded_path, model_path, sizeof(g_loaded_path) - 1);
     env->ReleaseStringUTFChars(path, model_path);
 
-    LOGI("Model and context initialized successfully. n_ctx=1024, threads=4");
+    LOGI("Model and context initialized successfully. n_ctx=1024, threads=8");
     return true;
 }
 
@@ -204,7 +204,8 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         return false;
     }
 
-    const int32_t n_max_tokens = 1024;
+    // Limit response to 400 tokens to guarantee < 1 minute completion
+    const int32_t n_max_tokens = 400;
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;
