@@ -36,7 +36,7 @@ import java.util.*
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import com.omniagent.app.ui.features.chat.ChatScreen
-import com.omniagent.app.ui.features.resume.ResumeTailorScreen
+import com.omniagent.app.ui.features.career.CareerDashboard
 import com.omniagent.app.ui.features.settings.ModelSelectionScreen
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 import kotlinx.coroutines.delay
@@ -101,7 +101,7 @@ fun DashboardScreen(
                             reasoningSteps = reasoningSteps,
                             classificationResult = classificationResult
                         )
-                        DashboardTab.CAREER -> ResumeTailorScreen(viewModel = viewModel)
+                        DashboardTab.CAREER -> CareerDashboard(viewModel = viewModel)
                         DashboardTab.LOGS -> LogsTab(
                             logs = logs,
                             onClearLogs = onClearLogs,
@@ -343,7 +343,7 @@ private fun OutputTab(
                         icon = Icons.Default.Description,
                         color = OmniColors.ModuleResume,
                         modifier = Modifier.weight(1f),
-                        onClick = { onUpdateInput("Score resume: ") }
+                        onClick = { onSwitchTab(DashboardTab.CAREER) }
                     )
                 }
             }

@@ -27,6 +27,22 @@ import com.omniagent.app.viewmodel.OmniAgentViewModel
 
 @Composable
 fun CareerDashboard(viewModel: OmniAgentViewModel) {
+    var showBuilder by remember { mutableStateOf(false) }
+
+    Crossfade(targetState = showBuilder, label = "CareerNav") { isBuilder ->
+        if (isBuilder) {
+            ResumeBuilderForm(
+                viewModel = viewModel,
+                onBack = { showBuilder = false }
+            )
+        } else {
+            CareerHubOverview(onNavigateToBuilder = { showBuilder = true })
+        }
+    }
+}
+
+@Composable
+fun CareerHubOverview(onNavigateToBuilder: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -53,7 +69,8 @@ fun CareerDashboard(viewModel: OmniAgentViewModel) {
                 title = "Smart Builder",
                 description = "Build a beast resume from scratch using AI tips.",
                 icon = Icons.Default.Construction,
-                color = OmniColors.Primary
+                color = OmniColors.Primary,
+                onClick = onNavigateToBuilder
             ),
             CareerModule(
                 title = "ATS AI Audit",
@@ -79,7 +96,7 @@ fun CareerDashboard(viewModel: OmniAgentViewModel) {
             columns = GridCells.Fixed(2),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillWeight(1f)
+            modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
             items(modules) { module ->
                 GlassCard(module)
@@ -200,7 +217,7 @@ fun GlassCard(module: CareerModule) {
             .fillMaxWidth()
             .height(180.dp)
             .clip(RoundedCornerShape(16.dp))
-            .clickable { /* Navigate */ },
+            .clickable { module.onClick() },
         color = OmniColors.Surface,
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.05f))
     ) {
@@ -238,7 +255,8 @@ data class CareerModule(
     val title: String,
     val description: String,
     val icon: ImageVector,
-    val color: Color
+    val color: Color,
+    val onClick: () -> Unit = {}
 )
 
 private fun Modifier.fillWeight(f: Float) = this.then(Modifier.fillMaxWidth().fillMaxHeight())

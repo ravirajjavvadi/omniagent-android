@@ -20,7 +20,7 @@ import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 
 @Composable
-fun ResumeBuilderForm(viewModel: OmniAgentViewModel) {
+fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var currentStep by remember { mutableStateOf(1) }
     val totalSteps = 4
     val scrollState = rememberScrollState()
@@ -76,7 +76,13 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel) {
                     Text("Back")
                 }
             } else {
-                Spacer(Modifier.width(8.dp))
+                OutlinedButton(
+                    onClick = onBack,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = OmniColors.TextSecondary)
+                ) {
+                    Text("Cancel")
+                }
             }
 
             Button(
