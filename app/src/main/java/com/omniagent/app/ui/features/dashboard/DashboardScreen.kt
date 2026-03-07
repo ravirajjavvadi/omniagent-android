@@ -95,7 +95,8 @@ fun DashboardScreen(
                             onClearResults = onClearResults,
                             onDecryptLog = onDecryptLog,
                             onAnalyze = onAnalyze,
-                            onUpdateInput = { inputText = it }
+                            onUpdateInput = { inputText = it },
+                            onSwitchTab = onSwitchTab
                         )
                         DashboardTab.REASONING -> ReasoningTab(
                             reasoningSteps = reasoningSteps,
@@ -251,7 +252,8 @@ private fun OutputTab(
     onDecryptLog: (String) -> String,
     onClearResults: () -> Unit,
     onAnalyze: (String) -> Unit,
-    onUpdateInput: (String) -> Unit
+    onUpdateInput: (String) -> Unit,
+    onSwitchTab: (DashboardTab) -> Unit
 ) {
     val context = LocalContext.current
     
