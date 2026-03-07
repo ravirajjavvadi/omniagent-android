@@ -137,7 +137,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                                 shape = RoundedCornerShape(4.dp)
                             ) {
                                 Text(
-                                    text = "6 THREADS",
+                                    text = "10 THREADS",
                                     color = OmniColors.Accent,
                                     style = MaterialTheme.typography.labelSmall,
                                     modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),

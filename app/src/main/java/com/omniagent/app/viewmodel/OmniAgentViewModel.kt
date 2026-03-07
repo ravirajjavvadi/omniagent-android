@@ -231,6 +231,22 @@ class OmniAgentViewModel(
 
             _uiState.update { it.copy(isProcessing = true) }
             try {
+                // --- FAST PATH: Greetings and Small Queries (< 5s target) ---
+                val lowCaseText = text.lowercase().trim()
+                val isGreeting = lowCaseText.matches(Regex(".*\\b(hi|hello|hey|greetings|morning|afternoon|thanks|thank you|bye|goodbye)\\b.*"))
+                
+                if (isGreeting) {
+                    Log.i(TAG, "Fast Path: Routing to Python General Engine for instant response.")
+                    val role = AccessControl.getCurrentRole().name.lowercase()
+                    val result = repository.runFullPipeline(text, role)
+                    val summaryVal = result.engineResult?.structured_analysis?.get("summary")?.toString() ?: "Hello! How can I help you today?"
+                    
+                    _chatMessages.update { it + ChatMessage(text = summaryVal, isUser = false, classification = result.classification) }
+                    _uiState.update { it.copy(isProcessing = false) }
+                    return@launch
+                }
+
+                // --- LLM PATH: Optimized for 10-Thread Speed ---
                 if (localModelPath != null && java.io.File(localModelPath).exists()) {
                     withContext(Dispatchers.IO) {
                         val loaded = llamaEngine.loadModel(localModelPath)
@@ -335,6 +351,11 @@ class OmniAgentViewModel(
      * Detects the model from the file path and applies the correct template.
      */
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
+        // TURBO MODE: For small queries, we skip the system prompt to hit 5s target
+        if (userMessage.length < 30) {
+            return "### User:\n$userMessage\n\n### Assistant:\n"
+        }
+
         val systemPrompt = "You are a concise AI. Answer directly."
 
         return when {
