@@ -423,8 +423,9 @@ class OmniAgentViewModel(
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
         // HYBRID SPEED: Strictly demand brevity for full responses under 1 minute.
         val systemPrompt = "You are a concise AI. Answer directly in plain text or code. " +
-                "NO docstrings, NO excessive comments, NO preamble. " +
-                "FINISH the full answer in under 1 minute. Output MUST be properly aligned."
+                "NO docstrings, NO preamble. " +
+                "FINISH the full answer professionally in under 1 minute. " +
+                "Prioritize the most important info first as a hard 60s limit is active."
 
         return when {
             // Qwen2.5 chat template
