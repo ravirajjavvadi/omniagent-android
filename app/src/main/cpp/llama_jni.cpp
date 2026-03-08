@@ -172,40 +172,17 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
     llama_kv_cache_clear(g_ctx);
     llama_sampler * sampler = build_sampler_chain();
 
-    // PERFORMANCE: Graceful Finish Logic
-    // Soft Limit: 50s (Try to finish sentence)
-    // Hard Limit: 58s (Total stop to guarantee 1-min)
     const int64_t start_time = llama_time_us();
-    const int64_t soft_limit_us = 50 * 1000000LL;
-    const int64_t hard_limit_us = 58 * 1000000LL;
-    bool is_soft_limit_reached = false;
-
-    const int32_t n_max_tokens = 1024; // Increased budget for complex answers
+    const int32_t n_max_tokens = 1024; // High budget for complete answers
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;
 
-    LOGI("Streaming started. Graceful 1-minute guarantee enabled.");
+    LOGI("Streaming started. Completeness prioritized (No time limit).");
 
     llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
 
     for (; n_decode < n_max_tokens; n_decode++) {
-        int64_t elapsed_us = llama_time_us() - start_time;
-
-        // 1. Check Hard Limit (58s) - Stop no matter what
-        if (elapsed_us > hard_limit_us) {
-            LOGW("HARD LIMIT REACHED (58s). Emergency stop for 1-min guarantee.");
-            break;
-        }
-
-        // 2. Check Soft Limit (50s) - Attempt sentence completion
-        if (elapsed_us > soft_limit_us) {
-            if (!is_soft_limit_reached) {
-                LOGI("Soft limit reached (50s). Looking for sentence end to finish gracefully...");
-                is_soft_limit_reached = true;
-            }
-        }
-
         // User Stop Request
         if (g_stop_requested.load()) break;
 
@@ -229,27 +206,6 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         if (piece_len > 0) {
             buf[piece_len] = '\0';
             
-            // Graceful Finish Detection: If soft limit hit, only continue until punctuation/newline
-            if (is_soft_limit_reached) {
-                bool is_sentence_end = (strchr(buf, '.') || strchr(buf, '!') || strchr(buf, '?') || strchr(buf, '\n'));
-                if (is_sentence_end) {
-                    // Send the final closing piece then stop
-                    LOGI("Sentence end detected after soft limit. Ending generation gracefully.");
-                    JNIEnv *callback_env = nullptr;
-                    bool attached = false;
-                    if (g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6) == JNI_EDETACHED) {
-                        if (g_jvm->AttachCurrentThread(&callback_env, nullptr) == JNI_OK) attached = true;
-                    }
-                    if (callback_env) {
-                        jstring j_piece = callback_env->NewStringUTF(buf);
-                        callback_env->CallVoidMethod(thiz, methodId, j_piece);
-                        callback_env->DeleteLocalRef(j_piece);
-                        if (attached) g_jvm->DetachCurrentThread();
-                    }
-                    break; 
-                }
-            }
-
             JNIEnv *callback_env = nullptr;
             bool attached = false;
             if (g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6) == JNI_EDETACHED) {

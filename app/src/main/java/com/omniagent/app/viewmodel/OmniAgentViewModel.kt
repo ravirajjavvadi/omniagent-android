@@ -339,7 +339,7 @@ class OmniAgentViewModel(
                         _chatMessages.update { it + initialAiMsg }
 
                         // Real-time Thinking Flow
-                        _reasoningSteps.value = listOf("Initializing Neural Weights...", "Optimizing 6-Thread Performance...", "Generating Token Stream (Hard 60s Cap)...")
+                        _reasoningSteps.value = listOf("Initializing Neural Weights...", "Optimizing 6-Thread Performance...", "Generating Token Stream (Completeness Optimized)...")
 
                         llamaEngine.generateStream(
                             prompt = formattedPrompt,
@@ -423,10 +423,11 @@ class OmniAgentViewModel(
      * Detects the model from the file path and applies the correct template.
      */
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
-        // HYBRID SPEED: Direct but complete answers. No panic-inducing warnings.
-        val systemPrompt = "You are a direct and helpful AI. Answer concisely but COMPLETELY. " +
-                "Do not use unnecessary introductions or docstrings. " +
-                "Ensure your answer is accurate and fits within a professional response."
+        // HYBRID QUALITY: Prioritize complete, accurate, and professional answers. No time-limit pressure.
+        val systemPrompt = "You are a professional and accurate AI. Provide complete and helpful answers. " +
+                "Respect user constraints strictly (e.g., if '3 lines' is asked, give exactly 3 descriptive lines). " +
+                "For code, provide ONLY the requested code block without excessive preamble. " +
+                "Do not rush; prioritize completeness for long answers."
 
         return when {
             // Qwen2.5 chat template
