@@ -25,24 +25,44 @@ import androidx.compose.ui.unit.sp
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.platform.LocalContext
+
+enum class CareerScreen {
+    HUB, BUILDER, AUDIT, TAILOR
+}
+
 @Composable
 fun CareerDashboard(viewModel: OmniAgentViewModel) {
-    var showBuilder by remember { mutableStateOf(false) }
+    var currentScreen by remember { mutableStateOf(CareerScreen.HUB) }
 
-    Crossfade(targetState = showBuilder, label = "CareerNav") { isBuilder ->
-        if (isBuilder) {
-            ResumeBuilderForm(
-                viewModel = viewModel,
-                onBack = { showBuilder = false }
+    Crossfade(targetState = currentScreen, label = "CareerNav") { screen ->
+        when (screen) {
+            CareerScreen.HUB -> CareerHubOverview(
+                onNavigate = { currentScreen = it }
             )
-        } else {
-            CareerHubOverview(onNavigateToBuilder = { showBuilder = true })
+            CareerScreen.BUILDER -> ResumeBuilderForm(
+                viewModel = viewModel,
+                onBack = { currentScreen = CareerScreen.HUB }
+            )
+            CareerScreen.AUDIT -> AtsAuditScreen(
+                viewModel = viewModel,
+                onBack = { currentScreen = CareerScreen.HUB }
+            )
+            CareerScreen.TAILOR -> JobTailorScreen(
+                viewModel = viewModel,
+                onBack = { currentScreen = CareerScreen.HUB }
+            )
         }
     }
 }
 
 @Composable
-fun CareerHubOverview(onNavigateToBuilder: () -> Unit) {
+fun CareerHubOverview(onNavigate: (CareerScreen) -> Unit) {
+    val context = LocalContext.current
+    val viewModel: OmniAgentViewModel = viewModel()
+    val resumeData by viewModel.careerResumeData.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -70,25 +90,33 @@ fun CareerHubOverview(onNavigateToBuilder: () -> Unit) {
                 description = "Build a beast resume from scratch using AI tips.",
                 icon = Icons.Default.Construction,
                 color = OmniColors.Primary,
-                onClick = onNavigateToBuilder
+                onClick = { onNavigate(CareerScreen.BUILDER) }
             ),
             CareerModule(
                 title = "ATS AI Audit",
                 description = "Check your score against top industry standards.",
                 icon = Icons.Default.Analytics,
-                color = OmniColors.Accent
+                color = OmniColors.Accent,
+                onClick = { onNavigate(CareerScreen.AUDIT) }
             ),
             CareerModule(
                 title = "Job Tailor",
                 description = "Instantly align your CV with any JD.",
                 icon = Icons.Default.AutoAwesome,
-                color = OmniColors.Secondary
+                color = OmniColors.Secondary,
+                onClick = { onNavigate(CareerScreen.TAILOR) }
             ),
             CareerModule(
                 title = "PDF Export",
                 description = "Generate a professional PDF and save it.",
                 icon = Icons.Default.PictureAsPdf,
-                color = Color(0xFFFF5252)
+                color = Color(0xFFFF5252),
+                onClick = {
+                    com.omniagent.app.core.util.ResumePdfExporter.exportResume(
+                        context,
+                        resumeData
+                    )
+                }
             )
         )
         

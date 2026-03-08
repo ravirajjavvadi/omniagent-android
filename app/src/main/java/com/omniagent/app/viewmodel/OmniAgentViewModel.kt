@@ -17,6 +17,8 @@ import com.omniagent.app.data.local.OmniAgentDatabase
 import com.omniagent.app.domain.repository.AnalysisRepository
 import com.omniagent.app.engine.LlamaEngine
 import com.omniagent.app.security.*
+import com.chaquo.python.Python
+import com.google.gson.Gson
 
 /**
  * Main ViewModel — manages all UI state and orchestrates the analysis pipeline.
@@ -65,6 +67,16 @@ class OmniAgentViewModel(
 
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
+
+    // === CAREER HUB STATE ===
+    private val _careerResumeData = MutableStateFlow(ResumeData())
+    val careerResumeData: StateFlow<ResumeData> = _careerResumeData.asStateFlow()
+
+    private val _careerAuditResult = MutableStateFlow<EngineResult?>(null)
+    val careerAuditResult: StateFlow<EngineResult?> = _careerAuditResult.asStateFlow()
+
+    private val _careerTailorResult = MutableStateFlow<EngineResult?>(null)
+    val careerTailorResult: StateFlow<EngineResult?> = _careerTailorResult.asStateFlow()
 
     val recentLogs = repository.getRecentLogs(50)
 
@@ -141,6 +153,52 @@ class OmniAgentViewModel(
     fun switchTab(tab: DashboardTab) {
         resetInactivityTimer()
         _uiState.update { it.copy(activeTab = tab) }
+    }
+
+    // === CAREER HUB ACTIONS ===
+
+    fun updateResumeData(data: ResumeData) {
+        _careerResumeData.value = data
+    }
+
+    fun runCareerAudit(text: String) {
+        if (text.isBlank()) return
+        _uiState.update { it.copy(isProcessing = true) }
+        viewModelScope.launch {
+            try {
+                val py = Python.getInstance()
+                val engine = py.getModule("resume_engine")
+                val resultJson = withContext(Dispatchers.IO) {
+                    engine.callAttr("analyze_resume", text).toString()
+                }
+                val engineResult = Gson().fromJson(resultJson, EngineResult::class.java)
+                _careerAuditResult.value = engineResult
+                _uiState.update { it.copy(isProcessing = false) }
+            } catch (e: Exception) {
+                Log.e("OmniAgent", "Career audit failed", e)
+                _uiState.update { it.copy(isProcessing = false, error = e.message) }
+            }
+        }
+    }
+
+    fun runCareerTailor(resume: String, jd: String) {
+        if (resume.isBlank() || jd.isBlank()) return
+        _uiState.update { it.copy(isProcessing = true) }
+        viewModelScope.launch {
+            try {
+                val py = Python.getInstance()
+                val engine = py.getModule("resume_engine")
+                val resultJson = withContext(Dispatchers.IO) {
+                    engine.callAttr("tailor_resume", resume, jd).toString()
+                }
+                val engineResult = Gson().fromJson(resultJson, EngineResult::class.java)
+                _careerTailorResult.value = engineResult
+                _uiState.update { it.copy(isProcessing = false) }
+            } catch (e: Exception) {
+                Log.e("OmniAgent", "Career tailoring failed", e)
+                _uiState.update { it.copy(isProcessing = false, error = e.message) }
+            }
+        }
     }
 
     /**

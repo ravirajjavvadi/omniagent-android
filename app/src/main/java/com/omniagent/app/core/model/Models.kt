@@ -25,6 +25,34 @@ data class ModuleScore(
 )
 
 /**
+ * Represents structured resume data for building and exporting.
+ */
+data class ResumeData(
+    val fullName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val jobTitle: String = "",
+    val company: String = "",
+    val experienceDescription: String = "",
+    val education: String = "",
+    val skills: String = ""
+) {
+    fun toMarkdown(): String = """
+        # $fullName
+        $email | $phone
+
+        ## $jobTitle at $company
+        $experienceDescription
+
+        ## Education
+        $education
+
+        ## Skills
+        $skills
+    """.trimIndent()
+}
+
+/**
  * Represents a single message in the chat conversation.
  */
 data class ChatMessage(

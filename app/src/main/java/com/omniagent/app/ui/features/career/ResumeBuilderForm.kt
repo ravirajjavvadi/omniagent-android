@@ -24,6 +24,17 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var currentStep by remember { mutableStateOf(1) }
     val totalSteps = 4
     val scrollState = rememberScrollState()
+    val resumeData by viewModel.careerResumeData.collectAsState()
+
+    // Local state for form fields
+    var fullName by remember { mutableStateOf(resumeData.fullName) }
+    var email by remember { mutableStateOf(resumeData.email) }
+    var phone by remember { mutableStateOf(resumeData.phone) }
+    var jobTitle by remember { mutableStateOf(resumeData.jobTitle) }
+    var company by remember { mutableStateOf(resumeData.company) }
+    var experience by remember { mutableStateOf(resumeData.experienceDescription) }
+    var education by remember { mutableStateOf(resumeData.education) }
+    var skills by remember { mutableStateOf(resumeData.skills) }
 
     Column(
         modifier = Modifier
@@ -52,10 +63,18 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
             label = "StepTransition"
         ) { step ->
             when (step) {
-                1 -> PersonalInfoForm()
-                2 -> WorkExperienceForm()
-                3 -> EducationForm()
-                4 -> SkillsForm()
+                1 -> PersonalInfoForm(
+                    fullName, { fullName = it },
+                    email, { email = it },
+                    phone, { phone = it }
+                )
+                2 -> WorkExperienceForm(
+                    jobTitle, { jobTitle = it },
+                    company, { company = it },
+                    experience, { experience = it }
+                )
+                3 -> EducationForm(education, { education = it })
+                4 -> SkillsForm(skills, { skills = it })
             }
         }
 
@@ -87,8 +106,16 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
 
             Button(
                 onClick = { 
-                    if (currentStep < totalSteps) currentStep++ 
-                    else { /* Finalize & Save */ }
+                    if (currentStep < totalSteps) {
+                        currentStep++
+                    } else {
+                        val finalData = com.omniagent.app.core.model.ResumeData(
+                            fullName, email, phone, jobTitle, company, experience, education, skills
+                        )
+                        viewModel.updateResumeData(finalData)
+                        viewModel.runCareerAudit(finalData.toMarkdown())
+                        onBack() // Target HUB to see results
+                    }
                 },
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = OmniColors.Primary)
@@ -131,46 +158,70 @@ fun StepIndicator(current: Int, total: Int) {
 }
 
 @Composable
-fun PersonalInfoForm() {
+fun PersonalInfoForm(
+    name: String, onNameChange: (String) -> Unit,
+    email: String, onEmailChange: (String) -> Unit,
+    phone: String, onPhoneChange: (String) -> Unit
+) {
     Column {
         Text("Personal Details", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = OmniColors.TextPrimary)
         Text("Let's start with who you are.", style = MaterialTheme.typography.bodyMedium, color = OmniColors.TextTertiary)
         Spacer(modifier = Modifier.height(24.dp))
         
-        CustomTextField(label = "Full Name", icon = Icons.Default.Person)
+        CustomTextField(label = "Full Name", icon = Icons.Default.Person, value = name, onValueChange = onNameChange)
         Spacer(modifier = Modifier.height(16.dp))
-        CustomTextField(label = "Email Address", icon = Icons.Default.Email)
+        CustomTextField(label = "Email Address", icon = Icons.Default.Email, value = email, onValueChange = onEmailChange)
         Spacer(modifier = Modifier.height(16.dp))
-        CustomTextField(label = "Phone Number", icon = Icons.Default.Phone)
+        CustomTextField(label = "Phone Number", icon = Icons.Default.Phone, value = phone, onValueChange = onPhoneChange)
     }
 }
 
 @Composable
-fun WorkExperienceForm() {
+fun WorkExperienceForm(
+    title: String, onTitleChange: (String) -> Unit,
+    company: String, onCompanyChange: (String) -> Unit,
+    desc: String, onDescChange: (String) -> Unit
+) {
     Column {
         Text("Work Experience", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = OmniColors.TextPrimary)
         Text("The AI will help rewrite these bullet points later.", style = MaterialTheme.typography.bodyMedium, color = OmniColors.TextTertiary)
         Spacer(modifier = Modifier.height(24.dp))
         
-        CustomTextField(label = "Job Title", icon = Icons.Default.Work)
+        CustomTextField(label = "Job Title", icon = Icons.Default.Work, value = title, onValueChange = onTitleChange)
         Spacer(modifier = Modifier.height(16.dp))
-        CustomTextField(label = "Company Name", icon = Icons.Default.Business)
+        CustomTextField(label = "Company Name", icon = Icons.Default.Business, value = company, onValueChange = onCompanyChange)
         Spacer(modifier = Modifier.height(16.dp))
-        CustomTextField(label = "Key Achievements", icon = Icons.Default.List, isMultiLine = true)
+        CustomTextField(label = "Key Achievements", icon = Icons.Default.List, isMultiLine = true, value = desc, onValueChange = onDescChange)
     }
 }
 
 @Composable
-fun EducationForm() { /* Similar Structure */ }
-@Composable
-fun SkillsForm() { /* Similar Structure */ }
+fun EducationForm(edu: String, onEduChange: (String) -> Unit) {
+    Column {
+        Text("Education", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = OmniColors.TextPrimary)
+        Text("Where did you study?", style = MaterialTheme.typography.bodyMedium, color = OmniColors.TextTertiary)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        CustomTextField(label = "Major/Degree/School", icon = Icons.Default.School, isMultiLine = true, value = edu, onValueChange = onEduChange)
+    }
+ }
 
 @Composable
-fun CustomTextField(label: String, icon: ImageVector, isMultiLine: Boolean = false) {
-    var text by remember { mutableStateOf("") }
+fun SkillsForm(skills: String, onSkillsChange: (String) -> Unit) {
+    Column {
+        Text("Skills", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = OmniColors.TextPrimary)
+        Text("Comma separated list of tech & soft skills.", style = MaterialTheme.typography.bodyMedium, color = OmniColors.TextTertiary)
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        CustomTextField(label = "Skills (e.g. Python, Java, Leadership)", icon = Icons.Default.Extension, isMultiLine = true, value = skills, onValueChange = onSkillsChange)
+    }
+ }
+
+@Composable
+fun CustomTextField(label: String, icon: ImageVector, isMultiLine: Boolean = false, value: String, onValueChange: (String) -> Unit) {
     OutlinedTextField(
-        value = text,
-        onValueChange = { text = it },
+        value = value,
+        onValueChange = onValueChange,
         label = { Text(label) },
         leadingIcon = { Icon(icon, contentDescription = null, tint = OmniColors.Primary) },
         modifier = Modifier.fillMaxWidth().then(if (isMultiLine) Modifier.height(120.dp) else Modifier),

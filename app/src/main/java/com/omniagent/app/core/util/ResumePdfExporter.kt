@@ -15,7 +15,7 @@ import java.io.IOException
 object ResumePdfExporter {
     private const val TAG = "ResumePdfExporter"
 
-    fun exportToPdf(context: Context, resumeData: Map<String, Any>, fileName: String): File? {
+    fun exportResume(context: Context, data: com.omniagent.app.core.model.ResumeData) {
         val pdfDocument = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 Size
         val page = pdfDocument.startPage(pageInfo)
@@ -28,37 +28,47 @@ object ResumePdfExporter {
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 24f
         paint.color = Color.BLACK
-        canvas.drawText(resumeData["name"]?.toString() ?: "Resume", 50f, yPos, paint)
+        canvas.drawText(data.fullName.ifBlank { "Professional Resume" }, 50f, yPos, paint)
         
         yPos += 30f
         paint.textSize = 12f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
-        canvas.drawText("${resumeData["email"]} | ${resumeData["phone"]}", 50f, yPos, paint)
+        canvas.drawText("${data.email} | ${data.phone}", 50f, yPos, paint)
         
         // Draw Separator
         yPos += 20f
         paint.strokeWidth = 1f
         canvas.drawLine(50f, yPos, 545f, yPos, paint)
         
-        // Draw Sections (Experience, Skills, Education)
+        // Draw Sections
         yPos += 40f
-        drawSection(canvas, paint, "PROFESSIONAL SUMMARY", resumeData["summary"]?.toString() ?: "", 50f, yPos).also { yPos = it }
+        if (data.jobTitle.isNotBlank()) {
+            drawSection(canvas, paint, "EXPERIENCE: ${data.jobTitle}", data.experienceDescription, 50f, yPos).also { yPos = it }
+            yPos += 20f
+        }
         
-        yPos += 30f
-        drawSection(canvas, paint, "EXPERIENCE", resumeData["experience"]?.toString() ?: "", 50f, yPos).also { yPos = it }
+        if (data.education.isNotBlank()) {
+            drawSection(canvas, paint, "EDUCATION", data.education, 50f, yPos).also { yPos = it }
+            yPos += 20f
+        }
+
+        if (data.skills.isNotBlank()) {
+            drawSection(canvas, paint, "TECHNICAL SKILLS", data.skills, 50f, yPos).also { yPos = it }
+        }
 
         pdfDocument.finishPage(page)
 
         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        val file = File(downloadsDir, "$fileName.pdf")
+        val fileName = "Beast_Resume_${System.currentTimeMillis()}.pdf"
+        val file = File(downloadsDir, fileName)
 
-        return try {
+        try {
             pdfDocument.writeTo(FileOutputStream(file))
             Log.i(TAG, "Resume exported successfully to ${file.absolutePath}")
-            file
+            android.widget.Toast.makeText(context, "Saved to Downloads: $fileName", android.widget.Toast.LENGTH_LONG).show()
         } catch (e: IOException) {
             Log.e(TAG, "Error writing PDF: ${e.message}")
-            null
+            android.widget.Toast.makeText(context, "Export Failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
         } finally {
             pdfDocument.close()
         }
