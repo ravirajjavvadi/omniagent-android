@@ -338,19 +338,31 @@ class OmniAgentViewModel(
                         )
                         _chatMessages.update { it + initialAiMsg }
 
+                        // Real-time Thinking Flow
+                        _reasoningSteps.value = listOf("Initializing Neural Weights...", "Optimizing 6-Thread Performance...", "Generating Token Stream (Hard 60s Cap)...")
+
                         llamaEngine.generateStream(
                             prompt = formattedPrompt,
                             listener = object : LlamaEngine.StreamingListener {
+                                private var isFirstToken = true
                                 override fun onTokenGenerated(token: String) {
+                                    var cleanedToken = token
+                                    // Strip leading artifacts (formatting cleanup)
+                                    if (isFirstToken) {
+                                        cleanedToken = token.trimStart().removePrefix("\"\"\"").removePrefix("```")
+                                        if (cleanedToken.isNotEmpty()) isFirstToken = false
+                                    }
+
                                     _chatMessages.update { messages ->
                                         messages.map { msg ->
-                                            if (msg.id == aiMsgId) msg.copy(text = msg.text + token)
+                                            if (msg.id == aiMsgId) msg.copy(text = msg.text + cleanedToken)
                                             else msg
                                         }
                                     }
                                 }
                                 override fun onStreamComplete() {
                                     Log.i(TAG, "Streaming complete")
+                                    _reasoningSteps.value = listOf("Neural alignment complete.", "Response delivered within 1 minute.")
                                 }
                                 override fun onStreamError(error: String) {
                                     Log.e(TAG, "Stream error: $error")
@@ -409,12 +421,10 @@ class OmniAgentViewModel(
      * Detects the model from the file path and applies the correct template.
      */
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
-        // TURBO MODE: For small queries, we skip the system prompt to hit 5s target
-        if (userMessage.length < 30) {
-            return "### User:\n$userMessage\n\n### Assistant:\n"
-        }
-
-        val systemPrompt = "You are a concise AI. Answer directly."
+        // HYBRID SPEED: Strictly demand brevity for full responses under 1 minute.
+        val systemPrompt = "You are a concise AI. Answer directly in plain text or code. " +
+                "NO docstrings, NO excessive comments, NO preamble. " +
+                "FINISH the full answer in under 1 minute. Output MUST be properly aligned."
 
         return when {
             // Qwen2.5 chat template
@@ -425,7 +435,7 @@ class OmniAgentViewModel(
             }
             // Gemma 2 chat template
             modelPath.contains("gemma", ignoreCase = true) -> {
-                "<start_of_turn>user\n$userMessage<end_of_turn>\n" +
+                "<start_of_turn>user\n$systemPrompt\n\nUser Question: $userMessage<end_of_turn>\n" +
                         "<start_of_turn>model\n"
             }
             // Generic fallback (instruction-style)

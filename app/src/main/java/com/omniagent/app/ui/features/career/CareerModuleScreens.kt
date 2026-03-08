@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.omniagent.app.core.model.EngineResult
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 
@@ -21,7 +22,7 @@ import com.omniagent.app.viewmodel.OmniAgentViewModel
 fun AtsAuditScreen(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var resumeText by remember { mutableStateOf("") }
     val auditResult by viewModel.careerAuditResult.collectAsState()
-    val isProcessing by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(
@@ -66,11 +67,15 @@ fun AtsAuditScreen(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
         Button(
             onClick = { viewModel.runCareerAudit(resumeText) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = resumeText.isNotBlank() && !isProcessing.isProcessing,
+            enabled = resumeText.isNotBlank() && !uiState.isProcessing,
             colors = ButtonDefaults.buttonColors(containerColor = OmniColors.Accent)
         ) {
-            if (isProcessing.isProcessing) {
-                CircularProgressIndicator(size = 20.dp, color = OmniColors.Background)
+            if (uiState.isProcessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = OmniColors.Background,
+                    strokeWidth = 2.dp
+                )
             } else {
                 Text("Run AI Audit")
             }
@@ -89,7 +94,7 @@ fun JobTailorScreen(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var resumeText by remember { mutableStateOf("") }
     var jdText by remember { mutableStateOf("") }
     val tailorResult by viewModel.careerTailorResult.collectAsState()
-    val isProcessing by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(
@@ -136,10 +141,18 @@ fun JobTailorScreen(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
         Button(
             onClick = { viewModel.runCareerTailor(resumeText, jdText) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = resumeText.isNotBlank() && jdText.isNotBlank() && !isProcessing.isProcessing,
+            enabled = resumeText.isNotBlank() && jdText.isNotBlank() && !uiState.isProcessing,
             colors = ButtonDefaults.buttonColors(containerColor = OmniColors.Secondary)
         ) {
-            Text("Tailor Resume (AI)")
+            if (uiState.isProcessing) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = OmniColors.Background,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("Tailor Resume (AI)")
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -151,7 +164,7 @@ fun JobTailorScreen(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-fun AuditResultContent(result: com.omniagent.app.core.model.EngineResult) {
+fun AuditResultContent(result: EngineResult) {
     Card(
         colors = CardDefaults.cardColors(containerColor = OmniColors.Surface),
         shape = RoundedCornerShape(16.dp)
@@ -175,7 +188,7 @@ fun AuditResultContent(result: com.omniagent.app.core.model.EngineResult) {
 }
 
 @Composable
-fun TailorResultContent(result: com.omniagent.app.core.model.EngineResult) {
+fun TailorResultContent(result: EngineResult) {
     Card(
         colors = CardDefaults.cardColors(containerColor = OmniColors.Surface),
         shape = RoundedCornerShape(16.dp)

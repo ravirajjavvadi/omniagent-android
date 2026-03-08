@@ -79,8 +79,8 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 1024;
-    ctx_params.n_threads = 10;       // Maxed to 10 for ultra speed
-    ctx_params.n_threads_batch = 10; // Maxed to 10 for faster thinking
+    ctx_params.n_threads = 6;       // Reduced to 6: Prevents thermal throttling & CPU contention
+    ctx_params.n_threads_batch = 6; // Optimized for consistent throughput
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {
@@ -95,7 +95,7 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     strncpy(g_loaded_path, model_path, sizeof(g_loaded_path) - 1);
     env->ReleaseStringUTFChars(path, model_path);
 
-    LOGI("Model and context initialized successfully. n_ctx=1024, threads=10");
+    LOGI("Model and context initialized successfully. n_ctx=1024, threads=6 (Stability Optimized)");
     return true;
 }
 
@@ -107,12 +107,12 @@ static llama_sampler * build_sampler_chain() {
     llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
     llama_sampler * chain = llama_sampler_chain_init(sparams);
 
-    // 1. Repetition penalty — full 9-arg signature required by this llama.cpp version
+    // 1. Repetition penalty 
     llama_sampler_chain_add(chain, llama_sampler_init_penalties(
         llama_n_vocab(g_model),        // n_vocab
         llama_token_eos(g_model),      // special_eos_id
         llama_token_nl(g_model),       // linefeed_id
-        64,                            // penalty_last_n (window size)
+        64,                            // penalty_last_n
         1.1f,                          // penalty_repeat
         0.0f,                          // penalty_freq
         0.0f,                          // penalty_present
@@ -155,102 +155,59 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
         return false;
     }
 
-    // Get method IDs on the calling thread (before spawning any callbacks)
+    // Get method IDs on the calling thread
     jclass clazz = env->GetObjectClass(thiz_original);
-    if (clazz == nullptr) {
-        LOGE("Failed to get object class");
-        return false;
-    }
     jmethodID methodId = env->GetMethodID(clazz, "onNativeToken", "(Ljava/lang/String;)V");
-    if (methodId == nullptr) {
-        LOGE("Failed to find onNativeToken method");
-        return false;
-    }
 
-    // Create a global ref to the engine object so it's safe across threads
     jobject thiz = env->NewGlobalRef(thiz_original);
-    if (thiz == nullptr) {
-        LOGE("Failed to create global reference");
-        return false;
-    }
 
     // Tokenize the prompt
     const char *prompt_text = env->GetStringUTFChars(prompt, 0);
-    if (prompt_text == nullptr) {
-        env->DeleteGlobalRef(thiz);
-        return false;
-    }
-
     std::vector<llama_token> tokens;
     int n_tokens_req = -llama_tokenize(g_model, prompt_text, strlen(prompt_text), nullptr, 0, true, true);
-    if (n_tokens_req <= 0) {
-        LOGE("Tokenization failed or empty prompt");
-        env->ReleaseStringUTFChars(prompt, prompt_text);
-        env->DeleteGlobalRef(thiz);
-        return false;
-    }
     tokens.resize(n_tokens_req);
     llama_tokenize(g_model, prompt_text, strlen(prompt_text), tokens.data(), tokens.size(), true, true);
     env->ReleaseStringUTFChars(prompt, prompt_text);
 
-    // Reset KV cache for a fresh generation
     llama_kv_cache_clear(g_ctx);
-
-    // Build quality sampler chain
     llama_sampler * sampler = build_sampler_chain();
-    if (sampler == nullptr) {
-        LOGE("Failed to create sampler chain");
-        env->DeleteGlobalRef(thiz);
-        return false;
-    }
 
-    // Limit response to 400 tokens to guarantee < 1 minute completion
-    const int32_t n_max_tokens = 400;
+    // PERFORMANCE: Hard 55-second limit for full response (leaving 5s for overhead)
+    const int64_t start_time = llama_time_us();
+    const int64_t max_duration_us = 55 * 1000000LL;
+
+    const int32_t n_max_tokens = 512; // Increased to 512 but time-capped
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;
 
-    LOGI("Streaming started. Prompt tokens: %zu, Max output: %d", tokens.size(), n_max_tokens);
-
-    if (tokens.size() >= llama_n_ctx(g_ctx)) {
-        LOGE("Prompt too long (%zu tokens) for context window (%d)", tokens.size(), llama_n_ctx(g_ctx));
-        llama_sampler_free(sampler);
-        env->DeleteGlobalRef(thiz);
-        return false;
-    }
+    LOGI("Streaming started. Max 1 minute guarantee active.");
 
     llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
 
     for (; n_decode < n_max_tokens; n_decode++) {
 
-        // Check if user requested to stop
-        if (g_stop_requested.load()) {
-            LOGI("Inference stopped by user request at step %d", n_decode);
+        // Check Hard Time Limit
+        if (llama_time_us() - start_time > max_duration_us) {
+            LOGW("HARD TIME LIMIT REACHED (55s). Forcing completion to meet 1-min guarantee.");
             break;
         }
 
-        // Ensure we don't overflow the KV cache context
-        if (n_pos + batch.n_tokens > llama_n_ctx(g_ctx)) {
-            LOGW("Context limit reached (%d tokens). Stopping generation.", n_pos);
-            break;
-        }
+        // Check User Stop Request
+        if (g_stop_requested.load()) break;
 
-        // Decode the batch
-        if (llama_decode(g_ctx, batch) != 0) {
-            LOGE("llama_decode failed at step %d", n_decode);
-            break;
-        }
+        // Context check
+        if (n_pos + batch.n_tokens > llama_n_ctx(g_ctx)) break;
+
+        // Decode
+        if (llama_decode(g_ctx, batch) != 0) break;
         n_pos += batch.n_tokens;
 
-        // Sample next token
+        // Sample
         new_token_id = llama_sampler_sample(sampler, g_ctx, -1);
         llama_sampler_accept(sampler, new_token_id);
 
-        // Stop at EOG (end of generation)
-        if (llama_token_is_eog(g_model, new_token_id)) {
-            LOGI("EOG token detected at step %d", n_decode);
-            break;
-        }
+        if (llama_token_is_eog(g_model, new_token_id)) break;
 
         // Convert token to text
         char buf[256] = {0};
@@ -258,47 +215,25 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
 
         if (piece_len > 0) {
             buf[piece_len] = '\0';
-
-            // Attach current thread to JVM to safely call Kotlin
             JNIEnv *callback_env = nullptr;
             bool attached = false;
-            int attach_result = g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6);
-
-            if (attach_result == JNI_EDETACHED) {
-                // Need to attach this thread
-                if (g_jvm->AttachCurrentThread(&callback_env, nullptr) == JNI_OK) {
-                    attached = true;
-                } else {
-                    LOGE("Failed to attach current thread to JVM");
-                    continue;
-                }
-            } else if (attach_result != JNI_OK) {
-                LOGE("GetEnv failed: %d", attach_result);
-                continue;
+            if (g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6) == JNI_EDETACHED) {
+                if (g_jvm->AttachCurrentThread(&callback_env, nullptr) == JNI_OK) attached = true;
             }
 
-            // Invoke Kotlin callback
-            jstring j_piece = callback_env->NewStringUTF(buf);
-            if (j_piece != nullptr) {
+            if (callback_env) {
+                jstring j_piece = callback_env->NewStringUTF(buf);
                 callback_env->CallVoidMethod(thiz, methodId, j_piece);
                 callback_env->DeleteLocalRef(j_piece);
-            }
-
-            // Detach only if we attached
-            if (attached) {
-                g_jvm->DetachCurrentThread();
+                if (attached) g_jvm->DetachCurrentThread();
             }
         }
-
-        // Next token batch
         batch = llama_batch_get_one(&new_token_id, 1);
     }
 
-    // Cleanup
     llama_sampler_free(sampler);
     env->DeleteGlobalRef(thiz);
-
-    LOGI("Streaming complete. Generated %d tokens", n_decode);
+    LOGI("Streaming complete in %lld ms. Tokens: %d", (llama_time_us() - start_time)/1000, n_decode);
     return (n_decode > 0);
 }
 
