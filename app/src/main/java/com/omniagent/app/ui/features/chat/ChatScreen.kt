@@ -27,7 +27,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val messages by viewModel.chatMessages.collectAsState()
     val isProcessing by viewModel.uiState.collectAsState()
     val reasoningSteps by viewModel.reasoningSteps.collectAsState()
-    var inputText by remember { mutableStateOf("") }
+    val inputText by viewModel.chatInput.collectAsState()
     var showThinkingPopup by remember { mutableStateOf(false) }
 
     if (showThinkingPopup) {
@@ -159,7 +159,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         ) {
             TextField(
                 value = inputText,
-                onValueChange = { inputText = it },
+                onValueChange = { viewModel.updateChatInput(it) },
                 placeholder = { Text("Ask anything...") },
                 modifier = Modifier
                     .weight(1f)
@@ -182,7 +182,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                         viewModel.stopResponse()
                     } else if (inputText.isNotBlank()) {
                         viewModel.sendMessage(inputText, localModelPath)
-                        inputText = ""
+                        viewModel.updateChatInput("")
                     }
                 },
                 modifier = Modifier

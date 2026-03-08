@@ -313,7 +313,10 @@ private fun OutputTab(
                         icon = Icons.Default.BusinessCenter,
                         color = OmniColors.ModuleStartup,
                         modifier = Modifier.weight(1f),
-                        onClick = { onUpdateInput("Analyze startup: ") }
+                        onClick = { 
+                            viewModel.updateChatInput("Analyze startup: ")
+                            onSwitchTab(DashboardTab.CHAT)
+                        }
                     )
                     // WIDGET 2: CODING
                     ModuleActionCard(
@@ -322,7 +325,10 @@ private fun OutputTab(
                         icon = Icons.Default.Code,
                         color = OmniColors.ModuleCoding,
                         modifier = Modifier.weight(1f),
-                        onClick = { onUpdateInput("Analyze code: ") }
+                        onClick = { 
+                            viewModel.updateChatInput("Analyze code: ")
+                            onSwitchTab(DashboardTab.CHAT)
+                        }
                     )
                 }
             }
@@ -336,7 +342,10 @@ private fun OutputTab(
                         icon = Icons.Default.Security,
                         color = OmniColors.ModuleCyber,
                         modifier = Modifier.weight(1f),
-                        onClick = { onUpdateInput("Security scan: ") }
+                        onClick = { 
+                            viewModel.updateChatInput("Security scan: ")
+                            onSwitchTab(DashboardTab.CHAT)
+                        }
                     )
                     // WIDGET 4: RESUME
                     ModuleActionCard(

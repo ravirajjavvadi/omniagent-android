@@ -68,6 +68,9 @@ class OmniAgentViewModel(
     private val _chatMessages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val chatMessages: StateFlow<List<ChatMessage>> = _chatMessages.asStateFlow()
 
+    private val _chatInput = MutableStateFlow("")
+    val chatInput: StateFlow<String> = _chatInput.asStateFlow()
+
     // === CAREER HUB STATE ===
     private val _careerResumeData = MutableStateFlow(ResumeData())
     val careerResumeData: StateFlow<ResumeData> = _careerResumeData.asStateFlow()
@@ -153,6 +156,10 @@ class OmniAgentViewModel(
     fun switchTab(tab: DashboardTab) {
         resetInactivityTimer()
         _uiState.update { it.copy(activeTab = tab) }
+    }
+
+    fun updateChatInput(input: String) {
+        _chatInput.value = input
     }
 
     // === CAREER HUB ACTIONS ===
