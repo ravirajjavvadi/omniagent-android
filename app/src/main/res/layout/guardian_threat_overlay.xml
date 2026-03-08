@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="16dp"
+    android:background="@drawable/rounded_glass_bg"
+    android:orientation="vertical"
+    android:padding="20dp"
+    android:elevation="12dp">
+
+    <TextView
+        android:id="@+id/overlayThreatTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🚨 CRITICAL THREAT DETECTED 🚨"
+        android:textColor="#FF3B30"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:paddingBottom="8dp"/>
+
+    <TextView
+        android:id="@+id/overlayAppOrigin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Origin: WhatsApp"
+        android:textColor="#A0A0A0"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:paddingBottom="12dp"/>
+
+    <TextView
+        android:id="@+id/overlayThreatUrl"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="http://malicious-phishing-link.com"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:textStyle="italic"
+        android:gravity="center"
+        android:background="#1AFFFFFF"
+        android:padding="12dp"
+        android:layout_marginBottom="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:weightSum="2">
+
+        <Button
+            android:id="@+id/btnOverlayIgnore"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="IGNORE"
+            android:textColor="#A0A0A0"
+            android:backgroundTint="#2D2D2D"
+            android:layout_marginEnd="8dp"/>
+
+        <Button
+            android:id="@+id/btnOverlayBlock"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="THANK YOU (BLOCK)"
+            android:textColor="#FFFFFF"
+            android:backgroundTint="#FF3B30"
+            android:textStyle="bold"
+            android:layout_marginStart="8dp"/>
+
+    </LinearLayout>
+</LinearLayout>

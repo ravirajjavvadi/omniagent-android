@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">OmniAgent</string>
+    <string name="accessibility_service_description">OmniAgent Neural Vision acts as a live Guardian Layer to monitor your screen and detect malicious links, phishing attempts, and active threats in real-time across your apps.</string>
 </resources>
