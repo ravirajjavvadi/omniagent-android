@@ -347,9 +347,11 @@ class OmniAgentViewModel(
                                 private var isFirstToken = true
                                 override fun onTokenGenerated(token: String) {
                                     var cleanedToken = token
-                                    // Strip leading artifacts (formatting cleanup)
+                                    
+                                    // Robust Artifact Stripping: Only on the start of the stream
                                     if (isFirstToken) {
-                                        cleanedToken = token.trimStart().removePrefix("\"\"\"").removePrefix("```")
+                                        cleanedToken = token.trimStart()
+                                            .replace(Regex("^\"\"\"|^```"), "")
                                         if (cleanedToken.isNotEmpty()) isFirstToken = false
                                     }
 
@@ -421,11 +423,10 @@ class OmniAgentViewModel(
      * Detects the model from the file path and applies the correct template.
      */
     private fun buildChatPrompt(userMessage: String, modelPath: String): String {
-        // HYBRID SPEED: Strictly demand brevity for full responses under 1 minute.
-        val systemPrompt = "You are a concise AI. Answer directly in plain text or code. " +
-                "NO docstrings, NO preamble. " +
-                "FINISH the full answer professionally in under 1 minute. " +
-                "Prioritize the most important info first as a hard 60s limit is active."
+        // HYBRID SPEED: Direct but complete answers. No panic-inducing warnings.
+        val systemPrompt = "You are a direct and helpful AI. Answer concisely but COMPLETELY. " +
+                "Do not use unnecessary introductions or docstrings. " +
+                "Ensure your answer is accurate and fits within a professional response."
 
         return when {
             // Qwen2.5 chat template
