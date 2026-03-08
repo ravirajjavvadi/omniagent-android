@@ -19,6 +19,9 @@ import com.omniagent.app.engine.LlamaEngine
 import com.omniagent.app.security.*
 import com.chaquo.python.Python
 import com.google.gson.Gson
+import com.omniagent.app.service.DeviceHealthManager
+import com.omniagent.app.service.DeviceVitals
+import com.omniagent.app.service.AppHealthStats
 
 /**
  * Main ViewModel — manages all UI state and orchestrates the analysis pipeline.
@@ -83,8 +86,32 @@ class OmniAgentViewModel(
 
     val recentLogs = repository.getRecentLogs(50)
 
+    // === CYBERSEC GUARDIAN STATE ===
+    private val deviceHealthManager = DeviceHealthManager(application)
+
+    private val _deviceVitals = MutableStateFlow<DeviceVitals?>(null)
+    val deviceVitals: StateFlow<DeviceVitals?> = _deviceVitals.asStateFlow()
+
+    private val _suspiciousApps = MutableStateFlow<List<AppHealthStats>>(emptyList())
+    val suspiciousApps: StateFlow<List<AppHealthStats>> = _suspiciousApps.asStateFlow()
+
     init {
         restorePendingAnalysisState()
+        refreshCyberSecVitals()
+    }
+
+    // === CYBERSEC ACTIONS ===
+    fun refreshCyberSecVitals() {
+        viewModelScope.launch {
+            try {
+                _deviceVitals.value = deviceHealthManager.getVitals()
+                // Usage stats queries should be on IO to prevent jank
+                val apps = withContext(Dispatchers.IO) { deviceHealthManager.scanAppActivity() }
+                _suspiciousApps.value = apps
+            } catch (e: Exception) {
+                Log.e("OmniAgent", "Failed to refresh CyberSec vitals", e)
+            }
+        }
     }
 
     // === ACTIONS ===
@@ -515,5 +542,6 @@ enum class DashboardTab(val title: String, val icon: String) {
     CAREER("Career", "trending_up"),
     LOGS("Logs", "history"),
     SETTINGS("Settings", "settings"),
+    CYBER("CyberSec", "security"),
     MODEL_SELECTION("AI Setup", "smart_toy")
 }

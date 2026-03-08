@@ -26,6 +26,7 @@ import com.google.gson.reflect.TypeToken
 import com.omniagent.app.core.model.*
 import com.omniagent.app.ui.common.*
 import com.omniagent.app.ui.features.growth.SkillGrowthScreen
+import com.omniagent.app.ui.features.cyber.CyberSecScreen
 import com.omniagent.app.ui.features.export.PdfReportExporter
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.security.CryptoManager
@@ -87,6 +88,7 @@ fun DashboardScreen(
                             localModelPath = downloadManager.getDownloadedModelPath()
                         )
                         DashboardTab.OUTPUT -> OutputTab(
+                            viewModel = viewModel,
                             classificationResult = classificationResult,
                             engineResult = engineResult,
                             uiState = uiState,
@@ -115,6 +117,7 @@ fun DashboardScreen(
                             onSwitchToUser = { viewModel.switchToUserRole() },
                             onNavigate = onSwitchTab
                         )
+                        DashboardTab.CYBER -> CyberSecScreen(viewModel = viewModel)
                         DashboardTab.MODEL_SELECTION -> com.omniagent.app.ui.features.settings.ModelSelectionScreen(
                             downloadManager = downloadManager,
                             downloadState = downloadState,
@@ -244,6 +247,7 @@ private fun TopBar(uiState: OmniAgentUiState) {
  */
 @Composable
 private fun OutputTab(
+    viewModel: OmniAgentViewModel,
     classificationResult: ClassificationResult?,
     engineResult: EngineResult?,
     uiState: OmniAgentUiState,
@@ -343,8 +347,7 @@ private fun OutputTab(
                         color = OmniColors.ModuleCyber,
                         modifier = Modifier.weight(1f),
                         onClick = { 
-                            viewModel.updateChatInput("Security scan: ")
-                            onSwitchTab(DashboardTab.CHAT)
+                            onSwitchTab(DashboardTab.CYBER)
                         }
                     )
                     // WIDGET 4: RESUME
