@@ -46,6 +46,7 @@ class PythonKernelManager {
         classifier.callAttr("get_reasoning_log").toString()
     }
 
+    @JvmName("runEngineWithHistory")
     suspend fun runEngine(moduleName: String, sanitizedInput: String, history: String? = null): String = withContext(Dispatchers.IO) {
         try {
             when (moduleName) {

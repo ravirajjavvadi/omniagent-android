@@ -79,8 +79,8 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 1024;
-    ctx_params.n_threads = 6;       // Reduced to 6: Prevents thermal throttling & CPU contention
-    ctx_params.n_threads_batch = 6; // Optimized for consistent throughput
+    ctx_params.n_threads = 8;       // Increased to 8: Maximizes modern 8-core smartphone throughput
+    ctx_params.n_threads_batch = 8; // Optimized for faster prompt processing
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {

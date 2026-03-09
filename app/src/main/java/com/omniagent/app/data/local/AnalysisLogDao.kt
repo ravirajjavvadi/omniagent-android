@@ -22,7 +22,7 @@ interface AnalysisLogDao {
     @Query("SELECT * FROM analysis_logs WHERE userInput LIKE '%' || :query || '%' OR classifiedModule LIKE '%' || :query || '%' ORDER BY timestamp DESC")
     fun searchLogs(query: String): Flow<List<AnalysisLog>>
 
-    @Query("SELECT DISTINCT sessionId, sessionTitle, MAX(timestamp) as lastTimestamp FROM analysis_logs GROUP BY sessionId ORDER BY lastTimestamp DESC")
+    @Query("SELECT sessionId AS id, sessionTitle AS title, MAX(timestamp) AS lastTimestamp FROM analysis_logs GROUP BY sessionId ORDER BY lastTimestamp DESC")
     fun getAllSessions(): Flow<List<ChatSession>>
 
     @Query("SELECT * FROM analysis_logs WHERE sessionId = :sessionId ORDER BY timestamp ASC")

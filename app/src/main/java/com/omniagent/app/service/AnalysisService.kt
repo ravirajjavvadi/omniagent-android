@@ -49,7 +49,13 @@ class AnalysisService : Service() {
                 val container = (application as OmniAgentApplication).container
                 
                 // Run full rigorous pipeline via the Repository
-                container.analysisRepository.runFullPipeline(userInput, userRole)
+                container.analysisRepository.runFullPipeline(
+                    userInput = userInput,
+                    userRole = userRole,
+                    sessionId = "service_session",
+                    sessionTitle = "Background Analysis",
+                    history = null
+                )
                 
                 updateNotification("Analysis complete. Check the OmniAgent dashboard.")
                 

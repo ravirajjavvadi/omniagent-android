@@ -1,5 +1,6 @@
 package com.omniagent.app.ui.features.chat
 
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -46,6 +47,12 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val chatHistory by viewModel.chatHistory.collectAsState()
     val currentSessionId by viewModel.currentSessionId.collectAsState()
     val currentSessionTitle by viewModel.currentSessionTitle.collectAsState()
+    val context = LocalContext.current
+    val messages by viewModel.chatMessages.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val inputText by viewModel.chatInput.collectAsState()
+    val isRecording by viewModel.isRecording.collectAsState()
+    val reasoningSteps by viewModel.reasoningSteps.collectAsState()
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -120,8 +127,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                containerColor = OmniColors.Surface,
-                drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+                modifier = Modifier.background(OmniColors.Surface)
             ) {
                 ChatHistorySidebar(
                     history = chatHistory,
@@ -153,7 +159,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                 modifier = Modifier.padding(bottom = 8.dp)
             ) {
                 IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                    Icon(Icons.Default.Menu, contentDescription = "History", color = OmniColors.Accent)
+                    Icon(Icons.Default.Menu, contentDescription = "History", tint = OmniColors.Accent)
                 }
                 Text(
                     text = currentSessionTitle,
@@ -163,7 +169,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                     modifier = Modifier.weight(1f)
                 )
                 IconButton(onClick = { viewModel.createNewSession() }) {
-                    Icon(Icons.Default.Add, contentDescription = "New Chat", color = OmniColors.Accent)
+                    Icon(Icons.Default.Add, contentDescription = "New Chat", tint = OmniColors.Accent)
                 }
             }
             
@@ -192,7 +198,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                         Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                     })
                 }
-                if (isProcessing.isProcessing) {
+                if (uiState.isProcessing) {
                     item {
                         TextButton(
                             onClick = { showThinkingPopup = true },
@@ -217,7 +223,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                                     shape = RoundedCornerShape(4.dp)
                                 ) {
                                     Text(
-                                        text = "10 THREADS",
+                                        text = "8 THREADS",
                                         color = OmniColors.Accent,
                                         style = MaterialTheme.typography.labelSmall,
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
@@ -293,7 +299,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 
             IconButton(
                 onClick = {
-                    if (isProcessing.isProcessing) {
+                    if (uiState.isProcessing) {
                         viewModel.stopResponse()
                     } else if (inputText.isNotBlank()) {
                         viewModel.sendMessage(inputText, localModelPath)
@@ -302,24 +308,27 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                 },
                 modifier = Modifier
                     .background(
-                        if (isProcessing.isProcessing) Color.Red.copy(alpha = 0.8f) 
+                        if (uiState.isProcessing) Color.Red.copy(alpha = 0.8f) 
                         else MaterialTheme.colorScheme.primary, 
                         RoundedCornerShape(24.dp)
                     )
                     .size(48.dp)
             ) {
                 Icon(
-                    imageVector = if (isProcessing.isProcessing) Icons.Default.Stop else Icons.Default.Send,
-                    contentDescription = if (isProcessing.isProcessing) "Stop" else "Send",
+                    imageVector = if (uiState.isProcessing) Icons.Default.Stop else Icons.Default.Send,
+                    contentDescription = if (uiState.isProcessing) "Stop" else "Send",
                     tint = Color.White
                 )
             }
         }
     }
 }
+}
 
 @Composable
 fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
+
+
     val alignment = if (message.isUser) Alignment.End else Alignment.Start
     val bgColor = if (message.isUser) OmniColors.PrimaryDim else OmniColors.SurfaceElevated
     val textColor = OmniColors.TextPrimary

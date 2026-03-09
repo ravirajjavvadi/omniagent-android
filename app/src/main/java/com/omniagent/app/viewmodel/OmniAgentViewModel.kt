@@ -8,6 +8,8 @@ import android.content.SharedPreferences
 import android.widget.Toast
 import android.util.Log
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
@@ -87,6 +89,9 @@ class OmniAgentViewModel(
 
     val chatHistory: StateFlow<List<ChatSession>> = repository.getAllSessions()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
     // === CAREER HUB STATE ===
     private val _careerResumeData = MutableStateFlow(ResumeData())
@@ -244,7 +249,13 @@ class OmniAgentViewModel(
             try {
                 val role = AccessControl.getCurrentRole().name.lowercase()
                 Log.d("OmniAgent", "Calling repository.runFullPipeline...")
-                val result = repository.runFullPipeline(userInput, role)
+                val result = repository.runFullPipeline(
+                    userInput = userInput,
+                    userRole = role,
+                    sessionId = currentSessionId.value,
+                    sessionTitle = currentSessionTitle.value,
+                    history = formatChatHistoryForPipeline()
+                )
                 
                 Log.d("OmniAgent", "Pipeline result received. Classification: ${result.classification.moduleName}")
 
@@ -716,6 +727,12 @@ class OmniAgentViewModel(
                 _uiState.update { it.copy(isProcessing = false, error = "Tailoring failed: ${e.message}") }
             }
         }
+    }
+
+    private fun formatChatHistoryForPipeline(): String {
+        return chatMessages.value
+            .takeLast(10)
+            .joinToString("\n") { (if (it.isUser) "User: " else "AI: ") + it.text }
     }
 }
 
