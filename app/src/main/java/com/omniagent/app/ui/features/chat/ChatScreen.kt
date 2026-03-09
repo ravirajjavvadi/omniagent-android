@@ -6,9 +6,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.*
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import android.widget.Toast
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,7 +39,21 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val messages by viewModel.chatMessages.collectAsState()
     val isProcessing by viewModel.uiState.collectAsState()
     val reasoningSteps by viewModel.reasoningSteps.collectAsState()
+    val isRecording by viewModel.isRecordingVoice.collectAsState()
     val inputText by viewModel.chatInput.collectAsState()
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
+    
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.startVoiceRecording()
+        } else {
+            Toast.makeText(context, "Permission denied for voice input", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     var showThinkingPopup by remember { mutableStateOf(false) }
 
     if (showThinkingPopup) {
@@ -103,47 +129,54 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         )
 
         // Messages List
-        LazyColumn(
+        SelectionContainer(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            reverseLayout = false
+                .fillMaxWidth()
         ) {
-            items(messages) { message ->
-                ChatBubble(message)
-            }
-            if (isProcessing.isProcessing) {
-                item {
-                    TextButton(
-                        onClick = { showThinkingPopup = true },
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(12.dp),
-                                strokeWidth = 2.dp,
-                                color = OmniColors.Accent
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = "AI Kernel is thinking...",
-                                color = OmniColors.Accent,
-                                style = MaterialTheme.typography.bodySmall,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Surface(
-                                color = OmniColors.Accent.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(4.dp)
-                            ) {
-                                Text(
-                                    text = "10 THREADS",
-                                    color = OmniColors.Accent,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
-                                    fontWeight = FontWeight.Bold
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                reverseLayout = false
+            ) {
+                items(messages) { message ->
+                    ChatBubble(message, onCopy = {
+                        clipboardManager.setText(AnnotatedString(message.text))
+                        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
+                    })
+                }
+                if (isProcessing.isProcessing) {
+                    item {
+                        TextButton(
+                            onClick = { showThinkingPopup = true },
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    strokeWidth = 2.dp,
+                                    color = OmniColors.Accent
                                 )
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = "AI Kernel is thinking...",
+                                    color = OmniColors.Accent,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Surface(
+                                    color = OmniColors.Accent.copy(alpha = 0.2f),
+                                    shape = RoundedCornerShape(4.dp)
+                                ) {
+                                    Text(
+                                        text = "10 THREADS",
+                                        color = OmniColors.Accent,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
                             }
                         }
                     }
@@ -177,6 +210,40 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 
             Spacer(modifier = Modifier.width(8.dp))
 
+            // Voice Assistant Button
+            IconButton(
+                onClick = {
+                    if (isRecording) {
+                        viewModel.stopVoiceRecording()
+                    } else {
+                        val permissionCheck = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.RECORD_AUDIO
+                        )
+                        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
+                            viewModel.startVoiceRecording()
+                        } else {
+                            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        }
+                    }
+                },
+                modifier = Modifier
+                    .background(
+                        if (isRecording) OmniColors.Accent.copy(alpha = 0.8f) 
+                        else OmniColors.SurfaceElevated, 
+                        RoundedCornerShape(24.dp)
+                    )
+                    .size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Mic,
+                    contentDescription = "Voice Input",
+                    tint = if (isRecording) Color.White else OmniColors.Primary
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
             IconButton(
                 onClick = {
                     if (isProcessing.isProcessing) {
@@ -205,7 +272,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 }
 
 @Composable
-fun ChatBubble(message: ChatMessage) {
+fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
     val alignment = if (message.isUser) Alignment.End else Alignment.Start
     val bgColor = if (message.isUser) OmniColors.PrimaryDim else OmniColors.SurfaceElevated
     val textColor = OmniColors.TextPrimary
@@ -242,11 +309,28 @@ fun ChatBubble(message: ChatMessage) {
                 // Show a subtle blinking cursor while AI is still generating
                 if (!message.isUser && message.text.isNotBlank() && message.classification != null) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Offline AI • ${message.classification.moduleName}",
-                        color = OmniColors.TextTertiary.copy(alpha = 0.6f),
-                        style = MaterialTheme.typography.labelSmall
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Offline AI • ${message.classification.moduleName}",
+                            color = OmniColors.TextTertiary.copy(alpha = 0.6f),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        IconButton(
+                            onClick = onCopy,
+                            modifier = Modifier.size(24.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy",
+                                tint = OmniColors.TextTertiary.copy(alpha = 0.6f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

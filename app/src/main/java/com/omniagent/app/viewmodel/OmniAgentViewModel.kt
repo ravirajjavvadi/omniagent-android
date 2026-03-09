@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.widget.Toast
 import android.util.Log
+import android.os.Bundle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.*
@@ -22,6 +23,10 @@ import com.google.gson.Gson
 import com.omniagent.app.service.DeviceHealthManager
 import com.omniagent.app.service.DeviceVitals
 import com.omniagent.app.service.AppHealthStats
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.content.Intent
 
 /**
  * Main ViewModel — manages all UI state and orchestrates the analysis pipeline.
@@ -95,9 +100,88 @@ class OmniAgentViewModel(
     private val _suspiciousApps = MutableStateFlow<List<AppHealthStats>>(emptyList())
     val suspiciousApps: StateFlow<List<AppHealthStats>> = _suspiciousApps.asStateFlow()
 
+    private val _isRecordingVoice = MutableStateFlow(false)
+    val isRecordingVoice: StateFlow<Boolean> = _isRecordingVoice.asStateFlow()
+
+    private var speechRecognizer: SpeechRecognizer? = null
+
     init {
         restorePendingAnalysisState()
         refreshCyberSecVitals()
+        initSpeechRecognizer()
+    }
+
+    private fun initSpeechRecognizer() {
+        if (SpeechRecognizer.isRecognitionAvailable(getApplication())) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getApplication())
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    _isRecordingVoice.value = true
+                }
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() {
+                    _isRecordingVoice.value = false
+                }
+                override fun onError(error: Int) {
+                    _isRecordingVoice.value = false
+                    val message = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No match found"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Assistant is busy"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
+                        else -> "Assistant error: $error"
+                    }
+                    Log.e(TAG, "Speech Error: $message")
+                    if (error != SpeechRecognizer.ERROR_NO_MATCH) {
+                        Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                override fun onResults(results: Bundle?) {
+                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        val text = matches[0]
+                        _chatInput.value = text
+                        // Auto-send if meaningful
+                        if (text.length > 2) {
+                            // Determine which model to use (default to currently selected or dashboard context)
+                            // For simplicity, we just populate the input for user review or auto-send
+                            // Let's populate input first as per "standard" UI
+                        }
+                    }
+                    _isRecordingVoice.value = false
+                }
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                    if (!matches.isNullOrEmpty()) {
+                        _chatInput.value = matches[0]
+                    }
+                }
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+        }
+    }
+
+    fun startVoiceRecording() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        speechRecognizer?.startListening(intent)
+    }
+
+    fun stopVoiceRecording() {
+        speechRecognizer?.stopListening()
+        _isRecordingVoice.value = false
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        speechRecognizer?.destroy()
     }
 
     // === CYBERSEC ACTIONS ===
