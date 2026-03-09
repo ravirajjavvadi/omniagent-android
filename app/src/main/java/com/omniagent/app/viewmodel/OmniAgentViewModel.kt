@@ -145,11 +145,9 @@ class OmniAgentViewModel(
                     if (!matches.isNullOrEmpty()) {
                         val text = matches[0]
                         _chatInput.value = text
-                        // Auto-send if meaningful
-                        if (text.length > 2) {
-                            // Determine which model to use (default to currently selected or dashboard context)
-                            // For simplicity, we just populate the input for user review or auto-send
-                            // Let's populate input first as per "standard" UI
+                        // Auto-send if meaningful and not currently processing
+                        if (text.length > 3 && !uiState.value.isProcessing) {
+                            sendMessage()
                         }
                     }
                     _isRecordingVoice.value = false
