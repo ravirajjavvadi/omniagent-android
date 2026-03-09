@@ -79,6 +79,15 @@ class OmniAgentViewModel(
     private val _chatInput = MutableStateFlow("")
     val chatInput: StateFlow<String> = _chatInput.asStateFlow()
 
+    private val _currentSessionId = MutableStateFlow(java.util.UUID.randomUUID().toString())
+    val currentSessionId: StateFlow<String> = _currentSessionId.asStateFlow()
+
+    private val _currentSessionTitle = MutableStateFlow("New Chat")
+    val currentSessionTitle: StateFlow<String> = _currentSessionTitle.asStateFlow()
+
+    val chatHistory: StateFlow<List<ChatSession>> = repository.getAllSessions()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // === CAREER HUB STATE ===
     private val _careerResumeData = MutableStateFlow(ResumeData())
     val careerResumeData: StateFlow<ResumeData> = _careerResumeData.asStateFlow()
@@ -112,64 +121,79 @@ class OmniAgentViewModel(
     }
 
     private fun initSpeechRecognizer() {
-        if (SpeechRecognizer.isRecognitionAvailable(getApplication())) {
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getApplication())
-            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    _isRecordingVoice.value = true
-                }
-                override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
-                override fun onBufferReceived(buffer: ByteArray?) {}
-                override fun onEndOfSpeech() {
-                    _isRecordingVoice.value = false
-                }
-                override fun onError(error: Int) {
-                    _isRecordingVoice.value = false
-                    val message = when (error) {
-                        SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
-                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
-                        SpeechRecognizer.ERROR_NETWORK -> "Network error"
-                        SpeechRecognizer.ERROR_NO_MATCH -> "No match found"
-                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Assistant is busy"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
-                        else -> "Assistant error: $error"
+        Handler(Looper.getMainLooper()).post {
+            if (SpeechRecognizer.isRecognitionAvailable(getApplication())) {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(getApplication())
+                speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        Log.d(TAG, "SpeechRecognizer: Ready")
+                        _isRecordingVoice.value = true
                     }
-                    Log.e(TAG, "Speech Error: $message")
-                    if (error != SpeechRecognizer.ERROR_NO_MATCH) {
-                        Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show()
+                    override fun onBeginningOfSpeech() {
+                        Log.d(TAG, "SpeechRecognizer: Beginning")
                     }
-                }
-                override fun onResults(results: Bundle?) {
-                    val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    if (!matches.isNullOrEmpty()) {
-                        val text = matches[0]
-                        _chatInput.value = text
-                        // Auto-send if meaningful and not currently processing
-                        if (text.length > 3 && !uiState.value.isProcessing) {
-                            sendMessage()
+                    override fun onRmsChanged(rmsdB: Float) {}
+                    override fun onBufferReceived(buffer: ByteArray?) {}
+                    override fun onEndOfSpeech() {
+                        Log.d(TAG, "SpeechRecognizer: End")
+                        _isRecordingVoice.value = false
+                    }
+                    override fun onError(error: Int) {
+                        _isRecordingVoice.value = false
+                        val message = when (error) {
+                            SpeechRecognizer.ERROR_AUDIO -> "Audio recording error"
+                            SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "Insufficient permissions"
+                            SpeechRecognizer.ERROR_NETWORK -> "Network error"
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No match found"
+                            SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "Assistant is busy"
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected"
+                            else -> "Assistant error: $error"
+                        }
+                        Log.e(TAG, "Speech Error ($error): $message")
+                        if (error != SpeechRecognizer.ERROR_NO_MATCH) {
+                            Toast.makeText(getApplication(), message, Toast.LENGTH_SHORT).show()
                         }
                     }
-                    _isRecordingVoice.value = false
-                }
-                override fun onPartialResults(partialResults: Bundle?) {
-                    val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    if (!matches.isNullOrEmpty()) {
-                        _chatInput.value = matches[0]
+                    override fun onResults(results: Bundle?) {
+                        val matches = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        Log.d(TAG, "Speech Results: $matches")
+                        if (!matches.isNullOrEmpty()) {
+                            val text = matches[0]
+                            _chatInput.value = text
+                            if (text.length > 3 && !uiState.value.isProcessing) {
+                                sendMessage()
+                            }
+                        }
+                        _isRecordingVoice.value = false
                     }
-                }
-                override fun onEvent(eventType: Int, params: Bundle?) {}
-            })
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        val matches = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                        if (!matches.isNullOrEmpty()) {
+                            _chatInput.value = matches[0]
+                        }
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) {}
+                })
+            } else {
+                Log.e(TAG, "Speech Recognition not available")
+            }
         }
     }
 
     fun startVoiceRecording() {
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        Handler(Looper.getMainLooper()).post {
+            try {
+                val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                    putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                    putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+                }
+                speechRecognizer?.startListening(intent)
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to start listening", e)
+                _isRecordingVoice.value = false
+            }
         }
-        speechRecognizer?.startListening(intent)
     }
 
     fun stopVoiceRecording() {
@@ -269,6 +293,98 @@ class OmniAgentViewModel(
 
     fun updateChatInput(input: String) {
         _chatInput.value = input
+    }
+
+    fun sendMessage() {
+        val input = _chatInput.value.trim()
+        if (input.isEmpty()) return
+
+        // If it's a new chat, use the first message as the title
+        if (chatMessages.value.isEmpty() && _currentSessionTitle.value == "New Chat") {
+            _currentSessionTitle.value = if (input.length > 20) input.take(17) + "..." else input
+        }
+
+        val userMessage = ChatMessage(text = input, isUser = true)
+        _chatMessages.value = _chatMessages.value + userMessage
+        _chatInput.value = ""
+
+        // Include up to 5 previous messages for context
+        val contextMessages = chatMessages.value.takeLast(5)
+        val historyString = if (contextMessages.isNotEmpty()) {
+            contextMessages.joinToString("\n") { (if (it.isUser) "User:" else "AI:") + " " + it.text }
+        } else null
+
+        viewModelScope.launch {
+            try {
+                _uiState.update { it.copy(isProcessing = true) }
+                val role = AccessControl.getCurrentRole().name.lowercase()
+                val result = repository.runFullPipeline(
+                    input, 
+                    role, 
+                    _currentSessionId.value, 
+                    _currentSessionTitle.value,
+                    historyString
+                )
+                
+                val aiMessage = ChatMessage(
+                    text = result.engineResult?.structured_analysis?.get("answer") as? String 
+                        ?: result.engineResult?.reasoning?.firstOrNull() ?: "I analyzed that for you.",
+                    isUser = false,
+                    classification = result.classification,
+                    engineResult = result.engineResult
+                )
+                _chatMessages.value = _chatMessages.value + aiMessage
+                _uiState.update { it.copy(isProcessing = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isProcessing = false, error = e.message) }
+            }
+        }
+    }
+
+    // === SESSION MANAGEMENT ===
+
+    fun switchSession(session: ChatSession) {
+        viewModelScope.launch {
+            _currentSessionId.value = session.id
+            _currentSessionTitle.value = session.title
+            repository.getLogsBySession(session.id).collect { logs ->
+                _chatMessages.value = logs.map { log ->
+                    ChatMessage(
+                        id = log.id.toString(),
+                        text = log.userInput,
+                        isUser = true,
+                        timestamp = log.timestamp
+                        // Note: For simplicity in history view, we might only show user inputs 
+                        // or reconstruct AI replies if they were stored separately.
+                        // For now, mapping logs to messages.
+                    )
+                }
+            }
+        }
+    }
+
+    fun createNewSession() {
+        _currentSessionId.value = java.util.UUID.randomUUID().toString()
+        _currentSessionTitle.value = "New Chat"
+        _chatMessages.value = emptyList()
+    }
+
+    fun renameSession(sessionId: String, newTitle: String) {
+        viewModelScope.launch {
+            repository.renameSession(sessionId, newTitle)
+            if (_currentSessionId.value == sessionId) {
+                _currentSessionTitle.value = newTitle
+            }
+        }
+    }
+
+    fun deleteSession(sessionId: String) {
+        viewModelScope.launch {
+            repository.deleteSession(sessionId)
+            if (_currentSessionId.value == sessionId) {
+                createNewSession()
+            }
+        }
     }
 
     // === CAREER HUB ACTIONS ===
@@ -395,6 +511,12 @@ class OmniAgentViewModel(
         val userMsg = ChatMessage(text = text, isUser = true)
         _chatMessages.update { it + userMsg }
 
+        // Include up to 5 previous messages for context
+        val contextMessages = chatMessages.value.takeLast(5)
+        val historyString = if (contextMessages.isNotEmpty()) {
+            contextMessages.joinToString("\n") { (if (it.isUser) "User:" else "AI:") + " " + it.text }
+        } else null
+
         viewModelScope.launch {
             // Priority Interrupt: If already processing, stop the old one first
             if (_uiState.value.isProcessing) {
@@ -412,7 +534,13 @@ class OmniAgentViewModel(
                 if (isGreeting) {
                     Log.i(TAG, "Fast Path: Routing to Python General Engine for instant response.")
                     val role = AccessControl.getCurrentRole().name.lowercase()
-                    val result = repository.runFullPipeline(text, role)
+                    val result = repository.runFullPipeline(
+                        text, 
+                        role,
+                        _currentSessionId.value,
+                        _currentSessionTitle.value,
+                        historyString
+                    )
                     val summaryVal = result.engineResult?.structured_analysis?.get("summary")?.toString() ?: "Hello! How can I help you today?"
                     
                     _chatMessages.update { it + ChatMessage(text = summaryVal, isUser = false, classification = result.classification) }
@@ -437,7 +565,7 @@ class OmniAgentViewModel(
                         }
 
                         // Apply model-specific chat template for accurate responses
-                        val formattedPrompt = buildChatPrompt(text, localModelPath)
+                        val formattedPrompt = buildChatPrompt(text, localModelPath, historyString)
                         Log.d(TAG, "Using prompt template for: ${localModelPath.substringAfterLast('/')}")
 
                         val aiMsgId = System.currentTimeMillis().toString()
@@ -498,7 +626,13 @@ class OmniAgentViewModel(
                 } else {
                     // Fallback to the Python heuristic engine if no model downloaded
                     val role = AccessControl.getCurrentRole().name.lowercase()
-                    val result = repository.runFullPipeline(text, role)
+                    val result = repository.runFullPipeline(
+                        text, 
+                        role,
+                        _currentSessionId.value,
+                        _currentSessionTitle.value,
+                        historyString
+                    )
 
                     val summaryVal = result.engineResult?.structured_analysis?.get("summary")?.toString()
                     val defaultPrefix = if (result.classification.moduleName == "General Context Handler") "" else "Analysis complete: "
@@ -538,28 +672,30 @@ class OmniAgentViewModel(
      * Builds a model-specific chat prompt for accurate AI responses.
      * Detects the model from the file path and applies the correct template.
      */
-    private fun buildChatPrompt(userMessage: String, modelPath: String): String {
+    private fun buildChatPrompt(userMessage: String, modelPath: String, history: String? = null): String {
         // HYBRID QUALITY: Prioritize complete, accurate, and professional answers. No time-limit pressure.
         val systemPrompt = "You are a professional and accurate AI. Provide complete and helpful answers. " +
                 "Respect user constraints strictly (e.g., if '3 lines' is asked, give exactly 3 descriptive lines). " +
                 "For code, provide ONLY the requested code block without excessive preamble. " +
                 "Do not rush; prioritize completeness for long answers."
 
+        val historyContext = if (history != null) "\nPrevious Chat Context:\n$history\n" else ""
+
         return when {
             // Qwen2.5 chat template
             modelPath.contains("qwen", ignoreCase = true) -> {
-                "<|im_start|>system\n$systemPrompt<|im_end|>\n" +
+                "<|im_start|>system\n$systemPrompt$historyContext<|im_end|>\n" +
                         "<|im_start|>user\n$userMessage<|im_end|>\n" +
                         "<|im_start|>assistant\n"
             }
             // Gemma 2 chat template
             modelPath.contains("gemma", ignoreCase = true) -> {
-                "<start_of_turn>user\n$systemPrompt\n\nUser Question: $userMessage<end_of_turn>\n" +
+                "<start_of_turn>user\n$systemPrompt$historyContext\n\nUser Question: $userMessage<end_of_turn>\n" +
                         "<start_of_turn>model\n"
             }
             // Generic fallback (instruction-style)
             else -> {
-                "### System:\n$systemPrompt\n\n### User:\n$userMessage\n\n### Assistant:\n"
+                "### System:\n$systemPrompt$historyContext\n\n### User:\n$userMessage\n\n### Assistant:\n"
             }
         }
     }

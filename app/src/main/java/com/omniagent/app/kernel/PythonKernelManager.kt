@@ -46,14 +46,14 @@ class PythonKernelManager {
         classifier.callAttr("get_reasoning_log").toString()
     }
 
-    suspend fun runEngine(moduleName: String, sanitizedInput: String): String = withContext(Dispatchers.IO) {
+    suspend fun runEngine(moduleName: String, sanitizedInput: String, history: String? = null): String = withContext(Dispatchers.IO) {
         try {
             when (moduleName) {
-                "coding" -> python.getModule("coding_engine").callAttr("analyze_code", sanitizedInput).toString()
-                "cybersecurity" -> python.getModule("cyber_engine").callAttr("analyze_security", sanitizedInput).toString()
-                "resume" -> python.getModule("resume_engine").callAttr("analyze_resume", sanitizedInput).toString()
-                "startup" -> python.getModule("startup_engine").callAttr("analyze_startup", sanitizedInput).toString()
-                "general" -> python.getModule("general_engine").callAttr("analyze_general", sanitizedInput).toString()
+                "coding" -> python.getModule("coding_engine").callAttr("analyze_code", sanitizedInput, history).toString()
+                "cybersecurity" -> python.getModule("cyber_engine").callAttr("analyze_security", sanitizedInput, history).toString()
+                "resume" -> python.getModule("resume_engine").callAttr("analyze_resume", sanitizedInput, history).toString()
+                "startup" -> python.getModule("startup_engine").callAttr("analyze_startup", sanitizedInput, history).toString()
+                "general" -> python.getModule("general_engine").callAttr("analyze_general", sanitizedInput, history).toString()
                 else -> "{\"error\": \"Routing failed: Unknown module '$moduleName'\"}"
             }
         } catch (e: Exception) {

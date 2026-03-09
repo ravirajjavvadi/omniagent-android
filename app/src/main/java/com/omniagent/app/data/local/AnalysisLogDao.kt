@@ -2,6 +2,7 @@ package com.omniagent.app.data.local
 
 import androidx.room.*
 import com.omniagent.app.core.model.AnalysisLog
+import com.omniagent.app.core.model.ChatSession
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -18,9 +19,20 @@ interface AnalysisLogDao {
     @Query("SELECT * FROM analysis_logs WHERE classifiedModule = :module ORDER BY timestamp DESC")
     fun getLogsByModule(module: String): Flow<List<AnalysisLog>>
 
-    // Search history feature
     @Query("SELECT * FROM analysis_logs WHERE userInput LIKE '%' || :query || '%' OR classifiedModule LIKE '%' || :query || '%' ORDER BY timestamp DESC")
     fun searchLogs(query: String): Flow<List<AnalysisLog>>
+
+    @Query("SELECT DISTINCT sessionId, sessionTitle, MAX(timestamp) as lastTimestamp FROM analysis_logs GROUP BY sessionId ORDER BY lastTimestamp DESC")
+    fun getAllSessions(): Flow<List<ChatSession>>
+
+    @Query("SELECT * FROM analysis_logs WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    fun getLogsBySession(sessionId: String): Flow<List<AnalysisLog>>
+
+    @Query("UPDATE analysis_logs SET sessionTitle = :newTitle WHERE sessionId = :sessionId")
+    suspend fun renameSession(sessionId: String, newTitle: String)
+
+    @Query("DELETE FROM analysis_logs WHERE sessionId = :sessionId")
+    suspend fun deleteSession(sessionId: String)
 
     @Query("SELECT * FROM analysis_logs WHERE id = :id")
     suspend fun getLogById(id: Long): AnalysisLog?

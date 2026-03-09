@@ -12,7 +12,13 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AnalysisRepository {
     suspend fun classifyInput(userInput: String): ClassificationResult
-    suspend fun runFullPipeline(userInput: String, userRole: String = "user"): AnalysisPipelineResult
+    suspend fun runFullPipeline(
+        userInput: String, 
+        userRole: String = "user",
+        sessionId: String,
+        sessionTitle: String,
+        history: String? = null
+    ): AnalysisPipelineResult
     
     fun getAllLogs(): Flow<List<AnalysisLog>>
     fun getRecentLogs(limit: Int = 20): Flow<List<AnalysisLog>>
@@ -23,6 +29,12 @@ interface AnalysisRepository {
     suspend fun getLogCount(): Int
     fun decryptLogResult(encryptedJson: String): String
     suspend fun getKernelReasoningLog(): String
+
+    // === SESSION MANAGEMENT ===
+    fun getAllSessions(): Flow<List<com.omniagent.app.core.model.ChatSession>>
+    fun getLogsBySession(sessionId: String): Flow<List<AnalysisLog>>
+    suspend fun renameSession(sessionId: String, newTitle: String)
+    suspend fun deleteSession(sessionId: String)
 
     // === NEW POWER FEATURES ===
     suspend fun performSystemScan(): EngineResult

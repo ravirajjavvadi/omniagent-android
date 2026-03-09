@@ -17,5 +17,7 @@ data class AnalysisLog(
     val confidenceLevel: String,
     val resultJson: String,     // Encrypted JSON result
     val reasoningJson: String,  // Encrypted reasoning chain
+    val sessionId: String = "default_session",
+    val sessionTitle: String = "New Chat",
     val userRole: String = "user" // "admin" or "user"
 )

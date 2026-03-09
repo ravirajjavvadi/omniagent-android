@@ -7,10 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.text.selection.SelectionContainer
-import androidx.compose.material.icons.filled.Send
-import androidx.compose.material.icons.filled.Stop
-import androidx.compose.material.icons.filled.Mic
-import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
@@ -31,18 +28,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omniagent.app.core.model.ChatMessage
 import com.omniagent.app.ui.common.TypingText
+import com.omniagent.app.ui.common.CodeCanvas
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
+import android.os.Handler
+import android.os.Looper
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.content.Intent
 
 @Composable
 fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
-    val messages by viewModel.chatMessages.collectAsState()
-    val isProcessing by viewModel.uiState.collectAsState()
-    val reasoningSteps by viewModel.reasoningSteps.collectAsState()
-    val isRecording by viewModel.isRecordingVoice.collectAsState()
-    val inputText by viewModel.chatInput.collectAsState()
-    val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val chatHistory by viewModel.chatHistory.collectAsState()
+    val currentSessionId by viewModel.currentSessionId.collectAsState()
+    val currentSessionTitle by viewModel.currentSessionTitle.collectAsState()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            Toast.makeText(context, "File attached: ${it.lastPathSegment}", Toast.LENGTH_SHORT).show()
+            // In a real app, logic to read and send file content would go here
+        }
+    }
     
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -104,29 +116,64 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(OmniColors.Background)
-            .imePadding()
-            .padding(16.dp)
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                containerColor = OmniColors.Surface,
+                drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+            ) {
+                ChatHistorySidebar(
+                    history = chatHistory,
+                    currentSessionId = currentSessionId,
+                    onSessionClick = { 
+                        viewModel.switchSession(it)
+                        scope.launch { drawerState.close() }
+                    },
+                    onNewChat = {
+                        viewModel.createNewSession()
+                        scope.launch { drawerState.close() }
+                    },
+                    onRename = { id, title -> viewModel.renameSession(id, title) },
+                    onDelete = { id -> viewModel.deleteSession(id) }
+                )
+            }
+        }
     ) {
-        // Chat Header
-        Text(
-            text = "OmniAgent Chat",
-            style = MaterialTheme.typography.headlineMedium,
-            color = OmniColors.TextPrimary,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 4.dp)
-        )
-        
-        Text(
-            text = if (localModelPath != null) "⚡ Offline AI Active — Full answers available" 
-                   else "⚠ Basic mode — Download an AI model in Settings for full answers",
-            style = MaterialTheme.typography.bodySmall,
-            color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(OmniColors.Background)
+                .imePadding()
+                .padding(16.dp)
+        ) {
+            // Chat Header
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 8.dp)
+            ) {
+                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    Icon(Icons.Default.Menu, contentDescription = "History", color = OmniColors.Accent)
+                }
+                Text(
+                    text = currentSessionTitle,
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = OmniColors.TextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { viewModel.createNewSession() }) {
+                    Icon(Icons.Default.Add, contentDescription = "New Chat", color = OmniColors.Accent)
+                }
+            }
+            
+            Text(
+                text = if (localModelPath != null) "⚡ Offline AI Active — Full answers available" 
+                       else "⚠ Basic mode — Download an AI model in Settings for full answers",
+                style = MaterialTheme.typography.bodySmall,
+                color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary,
+                modifier = Modifier.padding(start = 48.dp, bottom = 16.dp)
+            )
 
         // Messages List
         SelectionContainer(
@@ -281,58 +328,217 @@ fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = alignment
     ) {
-        Box(
-            modifier = Modifier
-                .clip(
-                    RoundedCornerShape(
-                        topStart = 16.dp,
-                        topEnd = 16.dp,
-                        bottomStart = if (message.isUser) 16.dp else 0.dp,
-                        bottomEnd = if (message.isUser) 0.dp else 16.dp
-                    )
-                )
-                .background(bgColor)
-                .padding(12.dp)
-                .widthIn(max = 280.dp)
-        ) {
-            Column {
-                // Use plain Text for BOTH user and AI messages.
-                // AI streaming already provides the word-by-word effect naturally.
-                // TypingText was causing a crash by restarting the full animation
-                // on every single token, creating hundreds of competing coroutines.
-                Text(
-                    text = message.text,
-                    color = textColor,
-                    style = MaterialTheme.typography.bodyLarge
-                )
-
-                // Show a subtle blinking cursor while AI is still generating
-                if (!message.isUser && message.text.isNotBlank() && message.classification != null) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Offline AI • ${message.classification.moduleName}",
-                            color = OmniColors.TextTertiary.copy(alpha = 0.6f),
-                            style = MaterialTheme.typography.labelSmall
-                        )
-                        IconButton(
-                            onClick = onCopy,
-                            modifier = Modifier.size(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ContentCopy,
-                                contentDescription = "Copy",
-                                tint = OmniColors.TextTertiary.copy(alpha = 0.6f),
-                                modifier = Modifier.size(16.dp)
+        val parts = message.text.split("```")
+        
+        parts.forEachIndexed { index, part ->
+            if (index % 2 == 1) {
+                // Code block
+                val language = part.lineSequence().firstOrNull() ?: ""
+                val code = if (language.isNotBlank() && language.length < 15) {
+                    part.removePrefix(language).trim()
+                } else {
+                    part.trim()
+                }
+                CodeCanvas(code = code, language = if (language.length < 15) language else "Code")
+            } else if (part.isNotBlank()) {
+                // Normal text
+                Box(
+                    modifier = Modifier
+                        .padding(vertical = 4.dp)
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = 16.dp,
+                                topEnd = 16.dp,
+                                bottomStart = if (message.isUser) 16.dp else 0.dp,
+                                bottomEnd = if (message.isUser) 0.dp else 16.dp
                             )
+                        )
+                        .background(bgColor)
+                        .padding(12.dp)
+                        .widthIn(max = 280.dp)
+                ) {
+                    Column {
+                        Text(
+                            text = part.trim(),
+                            color = textColor,
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+
+                        if (!message.isUser && index == parts.lastIndex && message.classification != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Offline AI • ${message.classification.moduleName}",
+                                    color = OmniColors.TextTertiary.copy(alpha = 0.6f),
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                                IconButton(onClick = onCopy, modifier = Modifier.size(24.dp)) {
+                                    Icon(Icons.Default.ContentCopy, "Copy", tint = OmniColors.TextTertiary.copy(alpha = 0.6f), modifier = Modifier.size(16.dp))
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+@Composable
+fun ChatHistorySidebar(
+    history: List<com.omniagent.app.core.model.ChatSession>,
+    currentSessionId: String,
+    onSessionClick: (com.omniagent.app.core.model.ChatSession) -> Unit,
+    onNewChat: () -> Unit,
+    onRename: (String, String) -> Unit,
+    onDelete: (String) -> Unit
+) {
+    var showRenameDialog by remember { mutableStateOf<com.omniagent.app.core.model.ChatSession?>(null) }
+
+    if (showRenameDialog != null) {
+        RenameDialog(
+            currentTitle = showRenameDialog!!.title,
+            onDismiss = { showRenameDialog = null },
+            onConfirm = { newTitle ->
+                onRename(showRenameDialog!!.id, newTitle)
+                showRenameDialog = null
+            }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Text(
+            "Chat History",
+            style = MaterialTheme.typography.titleLarge,
+            color = OmniColors.TextPrimary,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(16.dp))
+        
+        Button(
+            onClick = onNewChat,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(containerColor = OmniColors.Accent.copy(alpha = 0.1f)),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Icon(Icons.Default.Add, "New", tint = OmniColors.Accent)
+            Spacer(Modifier.width(8.dp))
+            Text("New Chat", color = OmniColors.Accent)
+        }
+        
+        Spacer(Modifier.height(16.dp))
+        
+        // Grouping logic
+        val now = System.currentTimeMillis()
+        val dayMs = 24 * 60 * 60 * 1000L
+        val today = history.filter { now - it.lastTimestamp < dayMs }
+        val yesterday = history.filter { it.lastTimestamp in (now - 2 * dayMs)..(now - dayMs) }
+        val older = history.filter { now - it.lastTimestamp > 2 * dayMs }
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (today.isNotEmpty()) {
+                item { HistoryCategory("Today") }
+                items(today) { session ->
+                    HistoryItem(session, currentSessionId == session.id, onSessionClick, { showRenameDialog = session }, onDelete)
+                }
+            }
+            if (yesterday.isNotEmpty()) {
+                item { HistoryCategory("Yesterday") }
+                items(yesterday) { session ->
+                    HistoryItem(session, currentSessionId == session.id, onSessionClick, { showRenameDialog = session }, onDelete)
+                }
+            }
+            if (older.isNotEmpty()) {
+                item { HistoryCategory("Older") }
+                items(older) { session ->
+                    HistoryItem(session, currentSessionId == session.id, onSessionClick, { showRenameDialog = session }, onDelete)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HistoryCategory(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        color = OmniColors.TextTertiary,
+        modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
+    )
+}
+
+@Composable
+fun HistoryItem(
+    session: com.omniagent.app.core.model.ChatSession,
+    isSelected: Boolean,
+    onSessionClick: (com.omniagent.app.core.model.ChatSession) -> Unit,
+    onRenameClick: () -> Unit,
+    onDeleteClick: (String) -> Unit
+) {
+    Surface(
+        onClick = { onSessionClick(session) },
+        color = if (isSelected) OmniColors.Accent.copy(alpha = 0.2f) else Color.Transparent,
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.ChatBubbleOutline, null, tint = OmniColors.TextSecondary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(
+                session.title,
+                color = if (isSelected) OmniColors.TextPrimary else OmniColors.TextSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
+            )
+            if (isSelected) {
+                IconButton(onClick = onRenameClick, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Edit, null, tint = OmniColors.Accent, modifier = Modifier.size(16.dp))
+                }
+                IconButton(onClick = { onDeleteClick(session.id) }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, null, tint = Color.Red.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RenameDialog(
+    currentTitle: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var text by remember { mutableStateOf(currentTitle) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename Chat") },
+        text = {
+            TextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent
+                )
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(text) }) { Text("OK") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        containerColor = OmniColors.SurfaceElevated,
+        titleContentColor = OmniColors.TextPrimary,
+        textContentColor = OmniColors.TextSecondary
+    )
 }

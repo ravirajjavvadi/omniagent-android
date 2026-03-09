@@ -108,3 +108,12 @@ enum class UserRole(val displayName: String) {
 enum class ProcessingState {
     IDLE, PROCESSING, SUCCESS, ERROR
 }
+
+/**
+ * Represents a group of related messages (a thread).
+ */
+data class ChatSession(
+    val id: String,
+    val title: String,
+    val lastTimestamp: Long
+)

@@ -47,7 +47,10 @@ class OmniAgentRepository(
      */
     override suspend fun runFullPipeline(
         userInput: String,
-        userRole: String
+        userRole: String,
+        sessionId: String,
+        sessionTitle: String,
+        history: String?
     ): AnalysisPipelineResult = withContext(Dispatchers.IO) {
         val startTime = System.currentTimeMillis()
         Log.d("OmniAgent", "Pipeline started for input: $userInput")
@@ -60,7 +63,7 @@ class OmniAgentRepository(
 
         // Step 2: Route to engine (fallback to general if unknown)
         Log.d("OmniAgent", "Step 2: Routing to engine...")
-        val engineResult = runEngine(classification.module ?: "general", sanitizedInput)
+        val engineResult = runEngine(classification.module ?: "general", sanitizedInput, history)
         Log.d("OmniAgent", "Engine result received from: ${engineResult.module_name}")
 
         // Step 3: Store encrypted log
@@ -72,7 +75,9 @@ class OmniAgentRepository(
             confidenceLevel = classification.confidenceLevel,
             resultJson = CryptoManager.encrypt(gson.toJson(engineResult)),
             reasoningJson = CryptoManager.encrypt(gson.toJson(classification.reasoning)),
-            userRole = userRole
+            userRole = userRole,
+            sessionId = sessionId,
+            sessionTitle = sessionTitle
         )
         analysisLogDao.insertLog(log)
 
@@ -91,8 +96,8 @@ class OmniAgentRepository(
     /**
      * Route to the correct engine based on classification.
      */
-    private suspend fun runEngine(moduleName: String, input: String): EngineResult = withContext(Dispatchers.IO) {
-        val resultJson = kernelManager.runEngine(moduleName, input)
+    private suspend fun runEngine(moduleName: String, input: String, history: String? = null): EngineResult = withContext(Dispatchers.IO) {
+        val resultJson = kernelManager.runEngine(moduleName, input, history)
         
         try {
             val type = object : TypeToken<Map<String, Any>>() {}.type
@@ -137,6 +142,18 @@ class OmniAgentRepository(
     override suspend fun clearAllLogs() = analysisLogDao.clearAllLogs()
 
     override suspend fun getLogCount(): Int = analysisLogDao.getLogCount()
+
+    // === SESSION MANAGEMENT ===
+    override fun getAllSessions(): Flow<List<ChatSession>> = analysisLogDao.getAllSessions()
+
+    override fun getLogsBySession(sessionId: String): Flow<List<AnalysisLog>> = 
+        analysisLogDao.getLogsBySession(sessionId)
+
+    override suspend fun renameSession(sessionId: String, newTitle: String) = 
+        analysisLogDao.renameSession(sessionId, newTitle)
+
+    override suspend fun deleteSession(sessionId: String) = 
+        analysisLogDao.deleteSession(sessionId)
 
     /**
      * Decrypt a log's result JSON (admin only).

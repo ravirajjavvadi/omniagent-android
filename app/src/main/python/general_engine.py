@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 
 class GeneralEngine:
-    def analyze(self, input_text):
+    def analyze(self, input_text, history=None):
         input_lower = input_text.lower().strip()
         words = input_lower.split()
         
@@ -49,14 +49,18 @@ class GeneralEngine:
             summary = f"I hear you. You mentioned '{input_text}'. As your offline OmniAgent, I'm fully active and ready to process your advanced code, resumes, or security operations securely on this device. Just let me know what you need analyzed."
             confidence = 0.6
 
+        reasoning_list = [
+            "Input processed through General Context Engine",
+            "Greeting detected: {}".format(is_greeting),
+            "Word count: {}".format(len(words))
+        ]
+        if history:
+            reasoning_list.append("Context awareness enabled (History provided)")
+
         report = {
             "module_name": "General Context Handler",
             "confidence_score": confidence,
-            "reasoning": [
-                "Input processed through General Context Engine",
-                "Greeting detected: {}".format(is_greeting),
-                "Word count: {}".format(len(words))
-            ],
+            "reasoning": reasoning_list,
             "structured_analysis": {
                 "word_count": len(words),
                 "summary": summary,
@@ -80,5 +84,5 @@ def get_engine():
         _engine = GeneralEngine()
     return _engine
 
-def analyze_general(input_text):
-    return get_engine().analyze(input_text)
+def analyze_general(input_text, history=None):
+    return get_engine().analyze(input_text, history)
