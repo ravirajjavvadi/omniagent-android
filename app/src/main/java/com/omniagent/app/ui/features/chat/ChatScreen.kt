@@ -82,6 +82,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         modifier = Modifier
             .fillMaxSize()
             .background(OmniColors.Background)
+            .imePadding()
             .padding(16.dp)
     ) {
         // Chat Header
