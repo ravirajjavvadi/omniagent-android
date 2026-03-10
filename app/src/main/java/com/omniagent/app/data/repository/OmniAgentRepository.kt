@@ -179,10 +179,21 @@ class OmniAgentRepository(
         sessionId: String,
         sessionTitle: String,
         history: String?,
-        maxTokens: Int
+        maxTokens: Int,
+        modelPath: String?
     ): Flow<StreamingUpdate> = callbackFlow {
         val startTime = System.currentTimeMillis()
-        Log.d("OmniAgent", "Streaming Pipeline started for: $userInput with maxTokens: $maxTokens")
+        Log.d("OmniAgent", "Streaming Pipeline started for: $userInput with maxTokens: $maxTokens, modelPath: $modelPath")
+
+        // Auto-load model if path provided
+        if (modelPath != null && !llamaEngine.isModelLoaded()) {
+            val loaded = llamaEngine.loadModel(modelPath)
+            if (!loaded) {
+                trySend(StreamingUpdate(error = "Failed to load model at: $modelPath"))
+                close()
+                return@callbackFlow
+            }
+        }
 
         val sanitizedInput = FileSandbox.sanitizeInput(userInput)
 

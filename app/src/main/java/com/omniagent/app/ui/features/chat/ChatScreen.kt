@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.filled.*
@@ -79,6 +80,17 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         "qwen2.5_1_5b" to "Qwen 1.5B (Balanced)", 
         "gemma_2_2b" to "Gemma 2.2B (Advanced)"
     )
+
+    // Resolve the internal key or external path to a valid engine path
+    val resolvedModelPath = remember(selectedModel, localModelPath) {
+        if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+            selectedModel
+        } else if (selectedModel.isNotEmpty()) {
+            context.getExternalFilesDir(null)?.absolutePath + "/$selectedModel.gguf"
+        } else {
+            localModelPath // Fallback to auto-detected path
+        }
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
@@ -278,20 +290,51 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                     modifier = Modifier.weight(1f)
                 )
                 
-                // Model Selector Button
-                IconButton(onClick = { showModelSelector = true }) {
-                    Icon(Icons.Default.Memory, contentDescription = "Select Model", tint = OmniColors.Accent)
+                // Model Selector (Icon + Label)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showModelSelector = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Memory, contentDescription = null, tint = OmniColors.Accent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(4.dp))
+                    val currentId = if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+                        selectedModel.substringAfterLast("/").substringAfterLast("\\").substringBeforeLast(".gguf")
+                    } else {
+                        selectedModel
+                    }
+                    Text(
+                        text = modelOptions.find { it.first == currentId }?.second?.substringBefore(" (") ?: "Select Model",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = OmniColors.Accent
+                    )
                 }
                 
-                // Length Selector Button
-                IconButton(onClick = { showLengthSelector = true }) {
-                    Icon(Icons.Default.Tune, contentDescription = "Response Length", tint = OmniColors.Accent)
+                Spacer(Modifier.width(8.dp))
+
+                // Length Selector (Icon + Label)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { showLengthSelector = true }
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null, tint = OmniColors.Accent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = responseLength.label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = OmniColors.Accent
+                    )
                 }
                 
-                // Regenerate Button (only show when there's a last AI response)
+                // Regenerate Button
                 if (messages.isNotEmpty() && !messages.last().isUser && lastUserMessage.isNotEmpty()) {
                     IconButton(onClick = { 
-                        viewModel.sendMessage(lastUserMessage, localModelPath, responseLength.maxTokens)
+                        viewModel.sendMessage(lastUserMessage, resolvedModelPath, responseLength.maxTokens)
                     }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Regenerate", tint = OmniColors.Accent)
                     }
@@ -457,7 +500,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                         viewModel.stopResponse()
                     } else if (inputText.isNotBlank()) {
                         lastUserMessage = inputText
-                        viewModel.sendMessage(inputText, localModelPath, responseLength.maxTokens)
+                        viewModel.sendMessage(inputText, resolvedModelPath, responseLength.maxTokens)
                         viewModel.updateChatInput("")
                     }
                 },
@@ -519,16 +562,13 @@ fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
                             )
                         )
                         .background(bgColor)
-                        .then(
-                            if (!message.isUser) Modifier.androidx.compose.foundation.border(
-                                width = 1.dp,
-                                color = borderColor,
-                                shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 2.dp)
-                            ) else Modifier.androidx.compose.foundation.border(
-                                width = 1.dp,
-                                color = borderColor,
-                                shape = RoundedCornerShape(16.dp, 16.dp, 2.dp, 16.dp)
-                            )
+                        .border(
+                            width = 1.dp,
+                            color = borderColor,
+                            shape = if (!message.isUser) 
+                                RoundedCornerShape(16.dp, 16.dp, 16.dp, 2.dp)
+                            else 
+                                RoundedCornerShape(16.dp, 16.dp, 2.dp, 16.dp)
                         )
                         .padding(12.dp)
                         .widthIn(max = 280.dp)

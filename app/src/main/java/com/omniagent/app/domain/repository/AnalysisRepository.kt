@@ -29,7 +29,8 @@ interface AnalysisRepository {
         sessionId: String,
         sessionTitle: String,
         history: String? = null,
-        maxTokens: Int = 1024
+        maxTokens: Int = 1024,
+        modelPath: String? = null
     ): kotlinx.coroutines.flow.Flow<com.omniagent.app.core.model.StreamingUpdate>
     
     fun getAllLogs(): Flow<List<AnalysisLog>>

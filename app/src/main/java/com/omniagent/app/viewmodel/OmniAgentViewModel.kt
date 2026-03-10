@@ -546,7 +546,8 @@ class OmniAgentViewModel(
                     sessionId = currentSessionId.value,
                     sessionTitle = currentSessionTitle.value,
                     history = historyString,
-                    maxTokens = maxTokens
+                    maxTokens = maxTokens,
+                    modelPath = localModelPath
                 ).collect { update ->
                     if (update.error != null) {
                         updateMessageText(aiMsgId, "⚠️ Error: ${update.error}")
