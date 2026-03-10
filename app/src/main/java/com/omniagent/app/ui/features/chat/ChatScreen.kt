@@ -63,6 +63,16 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val isRecording by viewModel.isRecording.collectAsState()
     val reasoningSteps by viewModel.reasoningSteps.collectAsState()
     
+    // UI state for scrolling
+    val listState = rememberLazyListState()
+    
+    // Auto-scroll when messages change or keyboard opens
+    LaunchedEffect(messages.size, uiState.isProcessing) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+    
     // Model selection state
     var selectedModel by remember { mutableStateOf(localModelPath ?: "") }
     var showModelSelector by remember { mutableStateOf(false) }
@@ -399,6 +409,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                 .fillMaxWidth()
         ) {
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 reverseLayout = false
@@ -452,7 +463,9 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 
         // Input Field
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(

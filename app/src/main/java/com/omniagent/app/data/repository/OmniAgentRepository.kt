@@ -228,9 +228,20 @@ class OmniAgentRepository(
                 }
             }
             
+            // Wrap in ChatML template for high-fidelity "ChatGPT-style" responses
+            val promptTemplate = """
+                <|im_start|>system
+                You are OmniAgent, a world-class AI assistant and expert programmer. Provide direct, accurate, and high-performance code solutions. Be concise, fast, and professional like ChatGPT.
+                <|im_end|>
+                <|im_start|>user
+                $sanitizedInput
+                <|im_end|>
+                <|im_start|>assistant
+            """.trimIndent()
+
             // RUN IN IO THREAD to prevent blocking the UI or Pipeline
             launch(Dispatchers.IO) {
-                val success = llamaEngine.generateStream(sanitizedInput, maxTokens, listener)
+                val success = llamaEngine.generateStream(promptTemplate, maxTokens, listener)
                 if (!success) {
                     trySend(StreamingUpdate(error = "Engine failed to produce response."))
                     close()
