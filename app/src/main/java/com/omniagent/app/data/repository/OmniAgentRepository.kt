@@ -187,7 +187,7 @@ class OmniAgentRepository(
 
         // Auto-load model if path provided
         if (modelPath != null && !llamaEngine.isModelLoaded()) {
-            val loaded = llamaEngine.loadModel(modelPath)
+            val loaded = withContext(Dispatchers.IO) { llamaEngine.loadModel(modelPath) }
             if (!loaded) {
                 trySend(StreamingUpdate(error = "Failed to load model at: $modelPath"))
                 close()
