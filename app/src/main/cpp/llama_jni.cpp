@@ -79,8 +79,8 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     // Create context — 1024 is a good balance for accuracy vs memory
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 1024;
-    ctx_params.n_threads = 8;       // Increased to 8: Maximizes modern 8-core smartphone throughput
-    ctx_params.n_threads_batch = 8; // Optimized for faster prompt processing
+    ctx_params.n_threads = 10;       // Beast Mode: 10 threads for multi-core performance
+    ctx_params.n_threads_batch = 10; // Optimized for ultra-fast prompt processing
 
     g_ctx = llama_new_context_with_model(g_model, ctx_params);
     if (g_ctx == nullptr) {
@@ -140,7 +140,7 @@ static llama_sampler * build_sampler_chain() {
 // ============================================================
 extern "C" JNIEXPORT jboolean JNICALL
 Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
-        JNIEnv *env, jobject thiz_original, jstring prompt) {
+        JNIEnv *env, jobject thiz_original, jstring prompt, jint max_tokens_limit) {
 
     std::lock_guard<std::mutex> lock(g_mutex); // Prevent concurrent inference
     g_stop_requested = false; // Reset stop flag before starting
@@ -173,7 +173,7 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
     llama_sampler * sampler = build_sampler_chain();
 
     const int64_t start_time = llama_time_us();
-    const int32_t n_max_tokens = 1024; // High budget for complete answers
+    const int32_t n_max_tokens = max_tokens_limit; // Dynamic budget based on user preference
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;

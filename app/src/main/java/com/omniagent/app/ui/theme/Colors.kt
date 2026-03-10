@@ -6,41 +6,43 @@ import androidx.compose.ui.graphics.Color
 // Inspired by control center / OS terminal aesthetics
 
 object OmniColors {
-    // Background layers
-    val Background = Color(0xFF0D1117)
-    val Surface = Color(0xFF161B22)
-    val SurfaceElevated = Color(0xFF1C2128)
-    val SurfaceBright = Color(0xFF21262D)
-    val CardBg = Color(0xFF1A1F27)
+    // === DEEP SPACE VIBRANT PALETTE ===
+    
+    // Background layers (Rich Obsidian)
+    val Background = Color(0xFF080A0C)
+    val Surface = Color(0xFF111418)
+    val SurfaceElevated = Color(0xFF1A1D23)
+    val SurfaceBright = Color(0xFF24292F)
+    val CardBg = Color(0xFF141A21)
 
-    // Primary accent — Electric Blue
-    val Primary = Color(0xFF58A6FF)
-    val PrimaryDim = Color(0xFF388BFD)
-    val PrimaryGlow = Color(0x3358A6FF) // 20% opacity
+    // Primary — Cyber Cyan (Glow focus)
+    val Primary = Color(0xFF00F2FF)
+    val PrimaryDim = Color(0xFF00B4D8)
+    val PrimaryGlow = Color(0x4D00F2FF) // 30% opacity
 
-    // Secondary — Neon Green (success/active)
-    val Secondary = Color(0xFF7EE787)
-    val SecondaryDim = Color(0xFF56D364)
-    val SecondaryGlow = Color(0x337EE787)
+    // Secondary — Matrix Green
+    val Secondary = Color(0xFF39FF14)
+    val SecondaryDim = Color(0xFF2ECC71)
+    val SecondaryGlow = Color(0x4D39FF14)
 
-    // Accent — Purple (highlights)
-    val Accent = Color(0xFFD2A8FF)
-    val AccentDim = Color(0xFFBC8CFF)
-    val AccentGlow = Color(0x33D2A8FF)
+    // Accent — Electric Purple
+    val Accent = Color(0xFFBD00FF)
+    val AccentDim = Color(0xFF9B00D3)
+    val AccentGlow = Color(0x4DBD00FF)
 
-    // Warning — Amber
-    val Warning = Color(0xFFF0883E)
-    val WarningDim = Color(0xFFDB6D28)
-    val WarningGlow = Color(0x33F0883E)
+    // Warning — High-Vis Orange
+    val Warning = Color(0xFFFF9F00)
+    val WarningDim = Color(0xFFE67E22)
+    val WarningGlow = Color(0x4DFF9F00)
 
-    // Danger — Red
-    val Danger = Color(0xFFF85149)
-    val DangerDim = Color(0xFFDA3633)
+    // Danger — Blood Red
+    val Danger = Color(0xFFFF3131)
+    val DangerDim = Color(0xFFD90429)
 
-    // Text
-    val TextPrimary = Color(0xFFE6EDF3)
-    val TextSecondary = Color(0xFF8B949E)
-    val TextTertiary = Color(0xFF6E7681)
+    // Text (Ultra Contrast)
+    val TextPrimary = Color(0xFFFFFFFF)
+    val TextSecondary = Color(0xFFB0B8C1)
+    val TextTertiary = Color(0xFF808B96)
 
     // Semantic Aliases
     val Success = Secondary
@@ -48,19 +50,20 @@ object OmniColors {
     val Error = Danger
     val Hint = TextTertiary
 
-    // Borders
-    val Border = Color(0xFF30363D)
-    val BorderFocused = Color(0xFF58A6FF)
+    // Borders (Neon Glow)
+    val Border = Color(0xFF2D333B)
+    val BorderFocused = Color(0xFF00F2FF)
 
-    // Module-specific colors
-    val ModuleCoding = Color(0xFF79C0FF)    // Light Blue
-    val ModuleCyber = Color(0xFFF85149)     // Red
-    val ModuleResume = Color(0xFF7EE787)    // Green
-    val ModuleStartup = Color(0xFFF0883E)   // Orange
+    // Module-specific colors (Vibrant Variants)
+    val ModuleCoding = Color(0xFF00F2FF)    // Cyan
+    val ModuleCyber = Color(0xFFFF3131)     // Red
+    val ModuleResume = Color(0xFF39FF14)    // Green
+    val ModuleStartup = Color(0xFFFF9F00)   // Orange
 
-    // Gradients
-    val GradientStart = Color(0xFF58A6FF)
-    val GradientEnd = Color(0xFFD2A8FF)
+    // Gradients (Premium Flow)
+    val GradientStart = Color(0xFF00F2FF)   // Cyan
+    val GradientCenter = Color(0xFFBD00FF)  // Purple
+    val GradientEnd = Color(0xFFFF3131)     // Red
 
     fun getModuleColor(module: String): Color {
         return when (module.lowercase()) {

@@ -11,6 +11,9 @@ import com.omniagent.app.security.CryptoManager
 import com.omniagent.app.security.FileSandbox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import java.util.*
 
@@ -21,7 +24,8 @@ import java.util.*
  */
 class OmniAgentRepository(
     private val analysisLogDao: AnalysisLogDao,
-    private val kernelManager: PythonKernelManager
+    private val kernelManager: PythonKernelManager,
+    private val llamaEngine: com.omniagent.app.engine.LlamaEngine
 ) : AnalysisRepository {
     private val gson = Gson()
 
@@ -167,6 +171,78 @@ class OmniAgentRepository(
      */
     override suspend fun getKernelReasoningLog(): String = withContext(Dispatchers.IO) {
         kernelManager.getReasoningLog()
+    }
+
+    override fun runStreamingPipeline(
+        userInput: String,
+        userRole: String,
+        sessionId: String,
+        sessionTitle: String,
+        history: String?,
+        maxTokens: Int
+    ): Flow<StreamingUpdate> = callbackFlow {
+        val startTime = System.currentTimeMillis()
+        Log.d("OmniAgent", "Streaming Pipeline started for: $userInput with maxTokens: $maxTokens")
+
+        val sanitizedInput = FileSandbox.sanitizeInput(userInput)
+
+        // Step 1: Classify (Fast Path)
+        val classification = try {
+            classifyInput(sanitizedInput)
+        } catch (e: Exception) {
+            trySend(StreamingUpdate(error = "Classification failed: ${e.message}"))
+            close(e)
+            return@callbackFlow
+        }
+        
+        trySend(StreamingUpdate(classification = classification))
+
+        // Step 2: Route
+        val moduleName = classification.module ?: "general"
+        
+        if (moduleName == "general" || moduleName == "coding") {
+            // Favor LlamaEngine for most queries for "ChatGPT feel"
+            val listener = object : com.omniagent.app.engine.LlamaEngine.StreamingListener {
+                override fun onTokenGenerated(token: String) {
+                    trySend(StreamingUpdate(token = token))
+                }
+                override fun onStreamComplete() {
+                    trySend(StreamingUpdate(isComplete = true))
+                    close()
+                }
+                override fun onStreamError(error: String) {
+                    trySend(StreamingUpdate(error = error))
+                    close(Exception(error))
+                }
+            }
+            
+            // Note: In an actual app, we'd build a template here. 
+            // For now, passing prompt directly as LlamaEngine handles templates internally.
+            val success = llamaEngine.generateStream(sanitizedInput, maxTokens, listener)
+            if (!success) {
+                trySend(StreamingUpdate(error = "Engine failed to start."))
+                close()
+            }
+        } else {
+            // For specialized Python engines, we don't have native streaming yet, 
+            // so we return the full result as a "single token" update.
+            val engineResult = try {
+                runEngine(moduleName, sanitizedInput, history)
+            } catch (e: Exception) {
+                EngineResult(module_name = "Error", reasoning = listOf(e.message ?: "Unknown"))
+            }
+
+            val summary = engineResult.structured_analysis["summary"] as? String 
+                ?: engineResult.reasoning.firstOrNull() 
+                ?: "Analysis complete."
+
+            trySend(StreamingUpdate(token = summary, engineResult = engineResult, isComplete = true))
+            close()
+        }
+
+        awaitClose {
+            llamaEngine.stopInference()
+        }
     }
 
     // === NEW POWER FEATURES ===

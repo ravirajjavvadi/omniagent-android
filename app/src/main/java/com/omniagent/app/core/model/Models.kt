@@ -103,6 +103,17 @@ enum class UserRole(val displayName: String) {
 }
 
 /**
+ * Represents a partial update during AI streaming.
+ */
+data class StreamingUpdate(
+    val token: String = "",
+    val classification: ClassificationResult? = null,
+    val engineResult: EngineResult? = null,
+    val isComplete: Boolean = false,
+    val error: String? = null
+)
+
+/**
  * Simple enum for processing state.
  */
 enum class ProcessingState {

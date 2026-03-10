@@ -2,6 +2,7 @@ package com.omniagent.app.ui.features.chat
 
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,6 +40,13 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.content.Intent
 
+// Response length options
+enum class ResponseLength(val label: String, val maxTokens: Int) {
+    BRIEF("Brief", 128),
+    BALANCED("Balanced", 256),
+    DETAILED("Detailed", 512)
+}
+
 @Composable
 fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val clipboardManager = LocalClipboardManager.current
@@ -53,13 +61,30 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val inputText by viewModel.chatInput.collectAsState()
     val isRecording by viewModel.isRecording.collectAsState()
     val reasoningSteps by viewModel.reasoningSteps.collectAsState()
+    
+    // Model selection state
+    var selectedModel by remember { mutableStateOf(localModelPath ?: "") }
+    var showModelSelector by remember { mutableStateOf(false) }
+    
+    // Response length state
+    var responseLength by remember { mutableStateOf(ResponseLength.BALANCED) }
+    var showLengthSelector by remember { mutableStateOf(false) }
+    
+    // Regenerate state
+    var lastUserMessage by remember { mutableStateOf("") }
+
+    // Model options
+    val modelOptions = listOf(
+        "qwen2.5_0_5b" to "Qwen 0.5B (Fast)",
+        "qwen2.5_1_5b" to "Qwen 1.5B (Balanced)", 
+        "gemma_2_2b" to "Gemma 2.2B (Advanced)"
+    )
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
             Toast.makeText(context, "File attached: ${it.lastPathSegment}", Toast.LENGTH_SHORT).show()
-            // In a real app, logic to read and send file content would go here
         }
     }
     
@@ -123,6 +148,82 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         }
     }
 
+    // Model Selector Dialog
+    if (showModelSelector) {
+        AlertDialog(
+            onDismissRequest = { showModelSelector = false },
+            title = { Text("Select AI Model", color = OmniColors.TextPrimary) },
+            text = {
+                Column {
+                    modelOptions.forEach { (id, name) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    selectedModel = id
+                                    showModelSelector = false 
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedModel == id,
+                                onClick = { 
+                                    selectedModel = id
+                                    showModelSelector = false 
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(name, color = OmniColors.TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showModelSelector = false }) { Text("Cancel") }
+            },
+            containerColor = OmniColors.SurfaceElevated
+        )
+    }
+
+    // Length Selector Dialog
+    if (showLengthSelector) {
+        AlertDialog(
+            onDismissRequest = { showLengthSelector = false },
+            title = { Text("Response Length", color = OmniColors.TextPrimary) },
+            text = {
+                Column {
+                    ResponseLength.entries.forEach { length ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { 
+                                    responseLength = length
+                                    showLengthSelector = false 
+                                }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = responseLength == length,
+                                onClick = { 
+                                    responseLength = length
+                                    showLengthSelector = false 
+                                }
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("${length.label} (~${length.maxTokens} tokens)", color = OmniColors.TextPrimary)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showLengthSelector = false }) { Text("Cancel") }
+            },
+            containerColor = OmniColors.SurfaceElevated
+        )
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -149,11 +250,19 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(OmniColors.Background)
+                .background(
+                    androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(
+                            OmniColors.Background,
+                            OmniColors.Surface.copy(alpha = 0.95f),
+                            OmniColors.Background
+                        )
+                    )
+                )
                 .imePadding()
                 .padding(16.dp)
         ) {
-            // Chat Header
+            // Chat Header with Model & Length Selectors
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -168,17 +277,62 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f)
                 )
+                
+                // Model Selector Button
+                IconButton(onClick = { showModelSelector = true }) {
+                    Icon(Icons.Default.Memory, contentDescription = "Select Model", tint = OmniColors.Accent)
+                }
+                
+                // Length Selector Button
+                IconButton(onClick = { showLengthSelector = true }) {
+                    Icon(Icons.Default.Tune, contentDescription = "Response Length", tint = OmniColors.Accent)
+                }
+                
+                // Regenerate Button (only show when there's a last AI response)
+                if (messages.isNotEmpty() && !messages.last().isUser && lastUserMessage.isNotEmpty()) {
+                    IconButton(onClick = { 
+                        viewModel.sendMessage(lastUserMessage, localModelPath, responseLength.maxTokens)
+                    }) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate", tint = OmniColors.Accent)
+                    }
+                }
+                
                 IconButton(onClick = { viewModel.createNewSession() }) {
                     Icon(Icons.Default.Add, contentDescription = "New Chat", tint = OmniColors.Accent)
                 }
             }
             
+            // Active model indicator
+            Row(
+                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val activeModelName = modelOptions.find { it.first == selectedModel }?.second ?: "No Model"
+                Text(
+                    text = if (localModelPath != null) "⚡ $activeModelName" else "⚠ Basic mode",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary
+                )
+                Spacer(Modifier.width(8.dp))
+                Surface(
+                    color = OmniColors.SurfaceElevated,
+                    shape = RoundedCornerShape(4.dp)
+                ) {
+                    Text(
+                        text = responseLength.label,
+                        color = OmniColors.TextSecondary,
+                        style = MaterialTheme.typography.labelSmall,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+
             Text(
                 text = if (localModelPath != null) "⚡ Offline AI Active — Full answers available" 
                        else "⚠ Basic mode — Download an AI model in Settings for full answers",
                 style = MaterialTheme.typography.bodySmall,
                 color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary,
-                modifier = Modifier.padding(start = 48.dp, bottom = 16.dp)
+                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp)
             )
 
         // Messages List
@@ -302,7 +456,8 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
                     if (uiState.isProcessing) {
                         viewModel.stopResponse()
                     } else if (inputText.isNotBlank()) {
-                        viewModel.sendMessage(inputText, localModelPath)
+                        lastUserMessage = inputText
+                        viewModel.sendMessage(inputText, localModelPath, responseLength.maxTokens)
                         viewModel.updateChatInput("")
                     }
                 },
@@ -330,7 +485,8 @@ fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
 
 
     val alignment = if (message.isUser) Alignment.End else Alignment.Start
-    val bgColor = if (message.isUser) OmniColors.PrimaryDim else OmniColors.SurfaceElevated
+    val bgColor = if (message.isUser) OmniColors.Primary.copy(alpha = 0.15f) else OmniColors.SurfaceElevated.copy(alpha = 0.8f)
+    val borderColor = if (message.isUser) OmniColors.Primary.copy(alpha = 0.3f) else OmniColors.Border
     val textColor = OmniColors.TextPrimary
 
     Column(
@@ -358,11 +514,22 @@ fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
                             RoundedCornerShape(
                                 topStart = 16.dp,
                                 topEnd = 16.dp,
-                                bottomStart = if (message.isUser) 16.dp else 0.dp,
-                                bottomEnd = if (message.isUser) 0.dp else 16.dp
+                                bottomStart = if (message.isUser) 16.dp else 2.dp,
+                                bottomEnd = if (message.isUser) 2.dp else 16.dp
                             )
                         )
                         .background(bgColor)
+                        .then(
+                            if (!message.isUser) Modifier.androidx.compose.foundation.border(
+                                width = 1.dp,
+                                color = borderColor,
+                                shape = RoundedCornerShape(16.dp, 16.dp, 16.dp, 2.dp)
+                            ) else Modifier.androidx.compose.foundation.border(
+                                width = 1.dp,
+                                color = borderColor,
+                                shape = RoundedCornerShape(16.dp, 16.dp, 2.dp, 16.dp)
+                            )
+                        )
                         .padding(12.dp)
                         .widthIn(max = 280.dp)
                 ) {

@@ -4,6 +4,7 @@ import android.content.Context
 import com.omniagent.app.data.local.OmniAgentDatabase
 import com.omniagent.app.data.repository.OmniAgentRepository
 import com.omniagent.app.domain.repository.AnalysisRepository
+import com.omniagent.app.engine.LlamaEngine
 import com.omniagent.app.kernel.PythonKernelManager
 import com.omniagent.app.security.AccessControl
 import com.omniagent.app.security.FileSandbox
@@ -31,11 +32,17 @@ class AppContainer(private val applicationContext: Context) {
         PythonKernelManager()
     }
 
+    // === Domain Engines ===
+    val llamaEngine: LlamaEngine by lazy {
+        LlamaEngine()
+    }
+
     // === Repository Layer (Domain Implementations) ===
     val analysisRepository: AnalysisRepository by lazy {
         OmniAgentRepository(
             analysisLogDao = database.analysisLogDao(),
-            kernelManager = pythonKernelManager
+            kernelManager = pythonKernelManager,
+            llamaEngine = llamaEngine
         )
     }
 }

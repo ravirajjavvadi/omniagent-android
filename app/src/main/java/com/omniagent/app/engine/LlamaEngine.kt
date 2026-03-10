@@ -36,7 +36,7 @@ class LlamaEngine {
     // -- JNI Declarations --
     external fun loadModelJNI(path: String): Boolean
     external fun generateResponseJNI(prompt: String): String
-    external fun generateStreamingResponseJNI(prompt: String): Boolean
+    external fun generateStreamingResponseJNI(prompt: String, maxTokens: Int): Boolean
     external fun freeModelJNI()
     external fun stopInferenceJNI()
     external fun forceReleaseJNI()
@@ -69,13 +69,13 @@ class LlamaEngine {
         return generateResponseJNI(prompt)
     }
 
-    fun generateStream(prompt: String, listener: StreamingListener): Boolean {
+    fun generateStream(prompt: String, maxTokens: Int = 1024, listener: StreamingListener): Boolean {
         if (!isModelLoaded()) {
             listener.onStreamError("No model loaded.")
             return false
         }
         this.streamingListener = listener
-        val result = generateStreamingResponseJNI(prompt)
+        val result = generateStreamingResponseJNI(prompt, maxTokens)
         if (result) {
             listener.onStreamComplete()
         } else {

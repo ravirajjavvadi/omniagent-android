@@ -19,6 +19,18 @@ interface AnalysisRepository {
         sessionTitle: String,
         history: String? = null
     ): AnalysisPipelineResult
+
+    /**
+     * Optimized streaming pipeline for < 5s ChatGPT-like responses.
+     */
+    fun runStreamingPipeline(
+        userInput: String,
+        userRole: String = "user",
+        sessionId: String,
+        sessionTitle: String,
+        history: String? = null,
+        maxTokens: Int = 1024
+    ): kotlinx.coroutines.flow.Flow<com.omniagent.app.core.model.StreamingUpdate>
     
     fun getAllLogs(): Flow<List<AnalysisLog>>
     fun getRecentLogs(limit: Int = 20): Flow<List<AnalysisLog>>
