@@ -347,14 +347,28 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             
             // Active model indicator
             Row(
-                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val activeModelName = modelOptions.find { it.first == selectedModel }?.second ?: "No Model"
+                val currentId = if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+                    selectedModel.substringAfterLast("/").substringAfterLast("\\").substringBeforeLast(".gguf")
+                } else {
+                    selectedModel
+                }
+                val activeModelName = modelOptions.find { it.first == currentId }?.second ?: (if (selectedModel.isNotEmpty()) "Offline AI Active" else "No Brain Selected")
+                
+                Icon(
+                    imageVector = Icons.Default.Bolt,
+                    contentDescription = null,
+                    tint = OmniColors.Accent,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(Modifier.width(4.dp))
                 Text(
-                    text = if (localModelPath != null) "⚡ $activeModelName" else "⚠ Basic mode",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary
+                    text = activeModelName,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = OmniColors.Accent,
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(Modifier.width(8.dp))
                 Surface(

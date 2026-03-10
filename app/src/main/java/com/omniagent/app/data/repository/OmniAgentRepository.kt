@@ -209,10 +209,10 @@ class OmniAgentRepository(
         trySend(StreamingUpdate(classification = classification))
 
         // Step 2: Route
-        val moduleName = classification.module ?: "general"
+        val moduleName = classification.module?.lowercase() ?: "general"
         
-        if (moduleName == "general" || moduleName == "coding") {
-            // Favor LlamaEngine for most queries for "ChatGPT feel"
+        if (moduleName == "general" || moduleName == "coding" || moduleName == "startup") {
+            // Favor LlamaEngine for core queries for "ChatGPT feel"
             val listener = object : com.omniagent.app.engine.LlamaEngine.StreamingListener {
                 override fun onTokenGenerated(token: String) {
                     trySend(StreamingUpdate(token = token))
@@ -227,12 +227,13 @@ class OmniAgentRepository(
                 }
             }
             
-            // Note: In an actual app, we'd build a template here. 
-            // For now, passing prompt directly as LlamaEngine handles templates internally.
-            val success = llamaEngine.generateStream(sanitizedInput, maxTokens, listener)
-            if (!success) {
-                trySend(StreamingUpdate(error = "Engine failed to start."))
-                close()
+            // RUN IN IO THREAD to prevent blocking the UI or Pipeline
+            launch(Dispatchers.IO) {
+                val success = llamaEngine.generateStream(sanitizedInput, maxTokens, listener)
+                if (!success) {
+                    trySend(StreamingUpdate(error = "Engine failed to produce response."))
+                    close()
+                }
             }
         } else {
             // For specialized Python engines, we don't have native streaming yet, 
