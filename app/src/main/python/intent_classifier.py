@@ -148,7 +148,7 @@ MODULE_DEFINITIONS = {
     },
     "general": {
         "name": "General Context Handler",
-        "description": "hi hello hey greetings help who are you what is this assistant support thanks thank you goodbye bye clear reset options features",
+        "description": "hi hello hey greetings help who are you what is this assistant support thanks thank you goodbye bye clear reset options features exam prepare study test prep tips advice question info information education guidance help student university college school",
         "triggers": [
             "hi", "hello", "hey there", "greetings", "how are you", 
             "what can you do", "help me", "who are you", "tell me about yourself",

@@ -291,7 +291,7 @@ def get_engine():
         _engine = CodingEngine()
     return _engine
 
-def analyze_code(code_input):
+def analyze_code(code_input, history=None):
     """Entry point: analyze code and return JSON report."""
     engine = get_engine()
     return engine.analyze(code_input)

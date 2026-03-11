@@ -375,7 +375,7 @@ def get_engine():
         _engine = ResumeEngine()
     return _engine
 
-def analyze_resume(resume_text):
+def analyze_resume(resume_text, history=None):
     """Entry point: analyze resume and return ATS scoring report."""
     engine = get_engine()
     return engine.analyze(resume_text)

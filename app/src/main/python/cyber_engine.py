@@ -262,7 +262,7 @@ def get_engine():
         _engine = CyberSecurityEngine()
     return _engine
 
-def analyze_security(input_text):
+def analyze_security(input_text, history=None):
     """Entry point: analyze input for security vulnerabilities."""
     engine = get_engine()
     return engine.analyze(input_text)

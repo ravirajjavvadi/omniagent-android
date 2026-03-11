@@ -441,7 +441,7 @@ def get_engine():
         _engine = StartupEngine()
     return _engine
 
-def analyze_startup(idea_text):
+def analyze_startup(idea_text, history=None):
     """Entry point: analyze startup idea and return feasibility report."""
     engine = get_engine()
     return engine.analyze(idea_text)
