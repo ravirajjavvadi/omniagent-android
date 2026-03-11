@@ -2,4 +2,46 @@
 <resources>
     <string name="app_name">OmniAgent</string>
     <string name="accessibility_service_description">OmniAgent Neural Vision acts as a live Guardian Layer to monitor your screen and detect malicious links, phishing attempts, and active threats in real-time across your apps.</string>
+    
+    <!-- Neural Shield Strings -->
+    <string name="neural_shield_title">🛡️ Enable Neural Shield</string>
+    <string name="neural_shield_subtitle">Follow these steps to enable protection:</string>
+    <string name="neural_shield_open_settings">Open Accessibility Settings</string>
+    <string name="neural_shield_dismiss">Dismiss</string>
+    <string name="neural_shield_enabled">Neural Shield Active</string>
+    <string name="neural_shield_disabled">Neural Shield Inactive</string>
+    <string name="neural_shield_guide_step1">1. Tap \'Downloaded Apps\' or \'Your Services\'</string>
+    <string name="neural_shield_guide_step2">2. Scroll down and find \'OmniAgent\'</string>
+    <string name="neural_shield_guide_step3">3. Tap on \'OmniAgent Neural Shield\'</string>
+    <string name="neural_shield_guide_step4">4. Toggle ON the Neural Shield switch</string>
+    <string name="neural_shield_guide_step5">5. Confirm by tapping \'OK\' or \'Allow\'</string>
+    
+    <!-- Ransomware Shield Strings -->
+    <string name="ransomware_shield_title">🛡️ Ransomware Shield</string>
+    <string name="ransomware_detected">⚠️ Mass File Modification Detected</string>
+    <string name="ransomware_protecting">Protecting your files...</string>
+    
+    <!-- Sensor Guardian Strings -->
+    <string name="sensor_guardian_title">📡 Sensor Guardian</string>
+    <string name="sensor_camera_access">Camera Access</string>
+    <string name="sensor_mic_access">Microphone Access</string>
+    <string name="sensor_gps_access">GPS Location</string>
+    <string name="sensor_last_24h">Last 24 Hours</string>
+    <string name="sensor_high_risk">High Risk</string>
+    <string name="sensor_no_access">No Access Detected</string>
+    
+    <!-- Permission Warden Strings -->
+    <string name="permission_warden_title">🔐 Permission Warden</string>
+    <string name="ghost_app_detected">👻 Ghost App Detected</string>
+    <string name="sleeper_service_detected">😴 Sleeper Service Active</string>
+    <string name="high_risk_permissions">High-Risk Permissions</string>
+    
+    <!-- Beast Mode Pulse Strings -->
+    <string name="beast_mode_pulse">⚡ Beast Mode Pulse</string>
+    <string name="cpu_temperature">CPU Temperature</string>
+    <string name="ram_pressure">RAM Pressure</string>
+    <string name="network_integrity">Network Integrity</string>
+    <string name="threat_level_safe">SAFE</string>
+    <string name="threat_level_caution">CAUTION</string>
+    <string name="threat_level_danger">DANGER</string>
 </resources>

@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@drawable/rounded_glass_bg"
+    android:elevation="8dp">
+
+    <!-- Header -->
+    <TextView
+        android:id="@+id/guideTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🛡️ Enable Neural Shield"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#00F2FF"
+        android:gravity="center"
+        android:paddingBottom="16dp" />
+
+    <!-- Subtitle -->
+    <TextView
+        android:id="@+id/guideSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Follow these steps to enable protection:"
+        android:textSize="14sp"
+        android:textColor="#B0B8C1"
+        android:gravity="center"
+        android:paddingBottom="20dp" />
+
+    <!-- Steps Container -->
+    <LinearLayout
+        android:id="@+id/stepsContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="1. Tap 'Downloaded Apps' or 'Your Services'"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="2. Scroll down and find 'OmniAgent'"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="3. Tap on 'OmniAgent Neural Shield'"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="4. Toggle ON the Neural Shield switch"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="5. Confirm by tapping 'OK' or 'Allow'"
+            android:textSize="14sp"
+            android:textColor="#FFFFFF"
+            android:paddingVertical="6dp" />
+
+    </LinearLayout>
+
+    <!-- Action Button -->
+    <Button
+        android:id="@+id/btnOpenSettings"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="20dp"
+        android:text="Open Accessibility Settings"
+        android:textColor="#080A0C"
+        android:textStyle="bold"
+        android:backgroundTint="#00F2FF" />
+
+    <!-- Dismiss Button -->
+    <Button
+        android:id="@+id/btnDismiss"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:text="Dismiss"
+        android:textColor="#808B96"
+        android:background="?android:attr/selectableItemBackground"
+        android:stateListAnimator="@null" />
+
+</LinearLayout>

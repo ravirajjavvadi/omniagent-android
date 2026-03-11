@@ -4,6 +4,8 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,16 +19,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.omniagent.app.service.AppHealthStats
-import com.omniagent.app.service.DeviceVitals
-import android.provider.Settings
-import android.text.TextUtils
-import android.content.Context
-import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
+import com.omniagent.app.service.*
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 
@@ -38,8 +35,35 @@ fun CyberSecScreen(
     val deviceVitals by viewModel.deviceVitals.collectAsState()
     val suspiciousApps by viewModel.suspiciousApps.collectAsState()
 
+    val context = LocalContext.current
+
+    // Beast Mode Pulse state
+    var beastModePulse by remember { mutableStateOf<BeastModePulse?>(null) }
+    
+    // Sensor Guardian state
+    var sensorHeatmap by remember { mutableStateOf<Map<Int, List<SensorAccessInfo>>>(emptyMap()) }
+    
+    // Permission Warden state
+    var appDNAReport by remember { mutableStateOf<AppDNAReport?>(null) }
+
+    // Ransomware Shield state
+    var ransomwareShieldActive by remember { mutableStateOf(false) }
+
+    // Show guided overlay state
+    var showGuidedOverlay by remember { mutableStateOf(false) }
+
+    // Refresh data on compose
     LaunchedEffect(Unit) {
         viewModel.refreshCyberSecVitals()
+        
+        // Get Beast Mode Pulse
+        beastModePulse = BeastModePulseManager.getPulseData(context)
+        
+        // Get Sensor Heatmap
+        sensorHeatmap = SensorGuardianManager.getSensorAccessHeatmap(context)
+        
+        // Get App DNA Analysis
+        appDNAReport = PermissionWardenManager.performAppDNAAnalysis(context)
     }
 
     Box(
@@ -49,9 +73,15 @@ fun CyberSecScreen(
     ) {
         // Decorative background glows
         Canvas(modifier = Modifier.fillMaxSize()) {
+            val threatColor = when (beastModePulse?.overallThreatLevel) {
+                BeastModePulseManager.ThreatLevel.DANGER -> OmniColors.Danger
+                BeastModePulseManager.ThreatLevel.CAUTION -> OmniColors.Warning
+                else -> OmniColors.ModuleCyber
+            }
+            
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(OmniColors.ModuleCyber.copy(alpha = 0.15f), Color.Transparent),
+                    colors = listOf(threatColor.copy(alpha = 0.15f), Color.Transparent),
                     center = center.copy(x = size.width * 0.2f, y = size.height * 0.1f)
                 ),
                 radius = 600f
@@ -74,7 +104,8 @@ fun CyberSecScreen(
             }
 
             item {
-                StatusOrb()
+                // Beast Mode Pulse Orb
+                BeastModePulseOrb(pulse = beastModePulse)
             }
 
             item {
@@ -82,24 +113,96 @@ fun CyberSecScreen(
             }
 
             item {
-                PermissionGrid()
+                GuardianControlsGrid(
+                    onNeuralShieldToggle = {
+                        val status = NeuralShieldManager.getServiceInfo(context)
+                        if (status.isEnabled) {
+                            // Already enabled - just open settings
+                            NeuralShieldManager.openAccessibilitySettings(context)
+                        } else if (status.requiresGuidedOverlay) {
+                            // Show guided overlay for older Android
+                            showGuidedOverlay = true
+                        } else {
+                            // Direct navigation for Android 12+
+                            NeuralShieldManager.openAccessibilitySettings(context)
+                        }
+                    },
+                    onRansomwareShieldToggle = {
+                        ransomwareShieldActive = !ransomwareShieldActive
+                        if (ransomwareShieldActive) {
+                            GuardianOverlayManager.startRansomwareShield(context)
+                        } else {
+                            GuardianOverlayManager.stopRansomwareShield()
+                        }
+                    },
+                    ransomwareShieldActive = ransomwareShieldActive
+                )
             }
 
             item {
-                SectionHeader(title = "DEVICE VITALS", icon = Icons.Default.Bolt)
+                SectionHeader(title = "BEAST MODE PULSE", icon = Icons.Default.Bolt)
             }
 
             item {
-                DeviceVitalsCards(vitals = deviceVitals)
+                BeastModeVitalsCards(pulse = beastModePulse)
             }
-            
+
+            item {
+                SectionHeader(title = "SENSOR GUARDIAN (24H)", icon = Icons.Default.Sensors)
+            }
+
+            item {
+                SensorGuardianHeatmap(heatmap = sensorHeatmap)
+            }
+
+            item {
+                SectionHeader(title = "PERMISSION WARDEN", icon = Icons.Default.AdminPanelSettings)
+            }
+
+            item {
+                PermissionWardenResults(report = appDNAReport)
+            }
+
             item {
                 SectionHeader(title = "THREAT MONITOR (LIVE)", icon = Icons.Default.Radar)
             }
-            
+
             item {
                 ThreatMonitor(apps = suspiciousApps)
             }
+        }
+
+        // Guided Overlay Dialog
+        if (showGuidedOverlay) {
+            AlertDialog(
+                onDismissRequest = { showGuidedOverlay = false },
+                title = { Text("🛡️ Enable Neural Shield", color = OmniColors.Primary) },
+                text = {
+                    Column {
+                        Text("Follow these steps on older Android versions:", 
+                            color = OmniColors.TextSecondary)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        NeuralShieldManager.getGuidedSteps().forEach { step ->
+                            Text(step, color = OmniColors.TextPrimary, 
+                                modifier = Modifier.padding(vertical = 4.dp))
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showGuidedOverlay = false
+                        NeuralShieldManager.openAccessibilitySettings(context)
+                    }) {
+                        Text("Open Settings", color = OmniColors.Primary)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showGuidedOverlay = false }) {
+                        Text("Cancel", color = OmniColors.TextTertiary)
+                    }
+                },
+                containerColor = OmniColors.SurfaceElevated
+            )
         }
     }
 }
@@ -127,7 +230,7 @@ private fun CyberSecHeader() {
             )
         }
         Text(
-            text = "Guardian Mode: Active Shield 🛡️",
+            text = "Beast Mode: Active Shield 🛡️",
             style = MaterialTheme.typography.bodyMedium,
             color = OmniColors.TextSecondary,
             modifier = Modifier.padding(top = 4.dp, start = 44.dp)
@@ -136,7 +239,15 @@ private fun CyberSecHeader() {
 }
 
 @Composable
-private fun StatusOrb() {
+private fun BeastModePulseOrb(pulse: BeastModePulse?) {
+    val threatLevel = pulse?.overallThreatLevel ?: BeastModePulseManager.ThreatLevel.SAFE
+    
+    val (statusText, statusColor, bgGlow) = when (threatLevel) {
+        BeastModePulseManager.ThreatLevel.DANGER -> Triple("DANGER", OmniColors.Danger, OmniColors.Danger.copy(alpha = 0.3f))
+        BeastModePulseManager.ThreatLevel.CAUTION -> Triple("CAUTION", OmniColors.Warning, OmniColors.Warning.copy(alpha = 0.3f))
+        else -> Triple("SECURE", OmniColors.Primary, OmniColors.Primary.copy(alpha = 0.3f))
+    }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -147,7 +258,7 @@ private fun StatusOrb() {
         Box(
             modifier = Modifier
                 .size(200.dp)
-                .border(2.dp, OmniColors.ModuleCyber.copy(alpha = 0.3f), CircleShape)
+                .border(2.dp, statusColor.copy(alpha = 0.3f), CircleShape)
         )
         
         // Inner Glow
@@ -158,7 +269,7 @@ private fun StatusOrb() {
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            OmniColors.ModuleCyber.copy(alpha = 0.4f),
+                            statusColor.copy(alpha = 0.4f),
                             Color.Transparent
                         )
                     )
@@ -167,14 +278,18 @@ private fun StatusOrb() {
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "SECURE",
+                text = statusText,
                 style = MaterialTheme.typography.headlineMedium,
-                color = OmniColors.ModuleCyber,
+                color = statusColor,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 4.sp
             )
             Text(
-                text = "No Threats Detected",
+                text = when (threatLevel) {
+                    BeastModePulseManager.ThreatLevel.DANGER -> "Threats Detected"
+                    BeastModePulseManager.ThreatLevel.CAUTION -> "Monitored"
+                    else -> "No Threats Detected"
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = OmniColors.TextTertiary
             )
@@ -203,29 +318,18 @@ private fun SectionHeader(title: String, icon: ImageVector) {
 }
 
 @Composable
-private fun PermissionGrid() {
+private fun GuardianControlsGrid(
+    onNeuralShieldToggle: () -> Unit,
+    onRansomwareShieldToggle: () -> Unit,
+    ransomwareShieldActive: Boolean
+) {
     val context = LocalContext.current
-    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
-
-    // Real-time state that recomposes when the app resumes
-    var hasOverlay by remember { mutableStateOf(false) }
-    var hasAccessibility by remember { mutableStateOf(false) }
-    var hasNotificationAccess by remember { mutableStateOf(false) }
-
-    DisposableEffect(lifecycleOwner) {
-        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
-                hasOverlay = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                    Settings.canDrawOverlays(context)
-                } else true
-                hasAccessibility = isAccessibilityServiceEnabled(context, com.omniagent.app.service.OmniAccessibilityLinkScanner::class.java)
-                hasNotificationAccess = isNotificationServiceEnabled(context)
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
+    
+    // Check Neural Shield status using robust method
+    var neuralShieldEnabled by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        neuralShieldEnabled = NeuralShieldManager.isNeuralShieldEnabled(context)
     }
 
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -234,53 +338,37 @@ private fun PermissionGrid() {
                 title = "Neural Vision",
                 icon = "👁️",
                 desc = "Live Link Scan",
-                enabled = hasAccessibility,
-                onToggle = {
-                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                    context.startActivity(intent)
-                },
+                enabled = neuralShieldEnabled,
+                onToggle = onNeuralShieldToggle,
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(8.dp))
             PermissionCard(
-                title = "Sentinel",
+                title = "Ransomware Shield",
                 icon = "🛡️",
-                desc = "Active Overlay",
-                enabled = hasOverlay,
-                onToggle = {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                        context.startActivity(intent)
-                    }
-                },
+                desc = "File Guard",
+                enabled = ransomwareShieldActive,
+                onToggle = onRansomwareShieldToggle,
                 modifier = Modifier.weight(1f)
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             PermissionCard(
-                title = "Signal Watch",
-                icon = "🛰️",
-                desc = "In-App Alerts",
-                enabled = hasNotificationAccess,
-                onToggle = {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP_MR1) {
-                        val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-                        context.startActivity(intent)
-                    }
-                },
+                title = "Sensor Guardian",
+                icon = "📡",
+                desc = "Hardware Monitor",
+                enabled = true,
+                onToggle = { },
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(8.dp))
             PermissionCard(
-                title = "Deep Scan",
-                icon = "📁",
-                desc = "File Guardian",
-                enabled = false, // Placeholder for future File storage scan
-                onToggle = {
-                     val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)
-                     context.startActivity(intent)
-                },
+                title = "Permission Warden",
+                icon = "🔐",
+                desc = "App DNA Scan",
+                enabled = true,
+                onToggle = { },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -340,19 +428,38 @@ private fun PermissionCard(
 }
 
 @Composable
-private fun DeviceVitalsCards(vitals: DeviceVitals?) {
+private fun BeastModeVitalsCards(pulse: BeastModePulse?) {
+    val cpuTemp = pulse?.cpuTemperature?.let { "%.1f°C".format(it) } ?: "--"
+    val ramUsed = pulse?.ramPercentUsed?.let { "%.0f%%".format(it) } ?: "--"
+    val networkStatus = pulse?.networkType ?: "Offline"
+    
+    val cpuColor = when (pulse?.cpuThreatLevel) {
+        BeastModePulseManager.ThreatLevel.DANGER -> OmniColors.Danger
+        BeastModePulseManager.ThreatLevel.CAUTION -> OmniColors.Warning
+        else -> OmniColors.Primary
+    }
+    
+    val ramColor = when (pulse?.ramThreatLevel) {
+        BeastModePulseManager.ThreatLevel.DANGER -> OmniColors.Danger
+        BeastModePulseManager.ThreatLevel.CAUTION -> OmniColors.Warning
+        else -> OmniColors.Accent
+    }
+    
+    val netColor = when (pulse?.networkThreatLevel) {
+        BeastModePulseManager.ThreatLevel.DANGER -> OmniColors.Danger
+        BeastModePulseManager.ThreatLevel.CAUTION -> OmniColors.Warning
+        else -> OmniColors.Secondary
+    }
+
     Row(
         modifier = Modifier
             .padding(horizontal = 16.dp)
             .horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        val batPct = vitals?.batteryPercent?.toString()?.plus("%") ?: "--%"
-        val ramGB = vitals?.ramFreeBytes?.let { "%.1f GB".format(it / (1024f * 1024f * 1024f)) } ?: "-- GB"
-        
-        VitalCard("CPU Load", "Live", Icons.Default.Memory, OmniColors.Primary)
-        VitalCard("RAM Free", ramGB, Icons.Default.Storage, OmniColors.Accent)
-        VitalCard("Battery", batPct, Icons.Default.BatteryChargingFull, OmniColors.Secondary)
+        VitalCard("CPU Temp", cpuTemp, Icons.Default.Thermostat, cpuColor)
+        VitalCard("RAM Use", ramUsed, Icons.Default.Memory, ramColor)
+        VitalCard("Network", networkStatus, Icons.Default.Wifi, netColor)
     }
 }
 
@@ -368,9 +475,188 @@ private fun VitalCard(label: String, value: String, icon: ImageVector, color: Co
         Column {
             Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = value, style = MaterialTheme.typography.headlineSmall, color = OmniColors.TextPrimary, fontWeight = FontWeight.Bold)
-            Text(text = label, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary)
+            Text(
+                text = value, 
+                style = MaterialTheme.typography.headlineSmall, 
+                color = OmniColors.TextPrimary, 
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = label, 
+                style = MaterialTheme.typography.labelSmall, 
+                color = OmniColors.TextTertiary
+            )
         }
+    }
+}
+
+@Composable
+private fun SensorGuardianHeatmap(heatmap: Map<Int, List<SensorAccessInfo>>) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(OmniColors.Surface)
+            .padding(16.dp)
+    ) {
+        // Camera sensors
+        Text("📷 Camera", color = OmniColors.TextSecondary, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        val cameraApps = heatmap[SensorGuardianManager.SENSOR_CAMERA] ?: emptyList()
+        if (cameraApps.isEmpty()) {
+            Text("No camera access detected", color = OmniColors.TextTertiary, fontSize = 12.sp)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(cameraApps.take(5)) { app ->
+                    SensorAppChip(app)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Microphone
+        Text("🎤 Microphone", color = OmniColors.TextSecondary, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        val micApps = heatmap[SensorGuardianManager.SENSOR_MICROPHONE] ?: emptyList()
+        if (micApps.isEmpty()) {
+            Text("No microphone access detected", color = OmniColors.TextTertiary, fontSize = 12.sp)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(micApps.take(5)) { app ->
+                    SensorAppChip(app)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Location
+        Text("📍 Location", color = OmniColors.TextSecondary, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        val locationApps = heatmap[SensorGuardianManager.SENSOR_LOCATION] ?: emptyList()
+        if (locationApps.isEmpty()) {
+            Text("No location access detected", color = OmniColors.TextTertiary, fontSize = 12.sp)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(locationApps.take(5)) { app ->
+                    SensorAppChip(app)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorAppChip(app: SensorAccessInfo) {
+    val chipColor = when (app.riskLevel) {
+        3 -> OmniColors.Danger
+        2 -> OmniColors.Warning
+        else -> OmniColors.Primary
+    }
+    
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(chipColor.copy(alpha = 0.2f))
+            .border(1.dp, chipColor, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = app.appName,
+            color = chipColor,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun PermissionWardenResults(report: AppDNAReport?) {
+    Column(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(OmniColors.Surface)
+            .padding(16.dp)
+    ) {
+        val ghostApps = report?.ghostApps ?: emptyList()
+        val sleeperApps = report?.sleeperServices ?: emptyList()
+        
+        if (ghostApps.isEmpty() && sleeperApps.isEmpty()) {
+            Text(
+                "✅ No suspicious apps detected",
+                color = OmniColors.Secondary,
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            // Ghost Apps
+            if (ghostApps.isNotEmpty()) {
+                Text(
+                    "👻 Ghost Apps: ${ghostApps.size}",
+                    color = OmniColors.Warning,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                ghostApps.take(3).forEach { app ->
+                    GhostAppItem(app)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+            
+            if (ghostApps.isNotEmpty() && sleeperApps.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // Sleeper Services
+            if (sleeperApps.isNotEmpty()) {
+                Text(
+                    "😴 Sleeper Services: ${sleeperApps.size}",
+                    color = OmniColors.Danger,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                sleeperApps.take(3).forEach { app ->
+                    SleeperAppItem(app)
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GhostAppItem(app: GhostAppInfo) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(app.appName, color = OmniColors.TextSecondary, fontSize = 12.sp)
+        Text(
+            "Risk: ${app.riskScore}", 
+            color = when {
+                app.riskScore > 30 -> OmniColors.Danger
+                app.riskScore > 15 -> OmniColors.Warning
+                else -> OmniColors.TextTertiary
+            },
+            fontSize = 12.sp
+        )
+    }
+}
+
+@Composable
+private fun SleeperAppItem(app: SleeperServiceInfo) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(app.appName, color = OmniColors.TextSecondary, fontSize = 12.sp)
+        Text(
+            "${app.runningServices.size} services", 
+            color = if (app.runningServices.isNotEmpty()) OmniColors.Danger else OmniColors.TextTertiary,
+            fontSize = 12.sp
+        )
     }
 }
 
@@ -387,12 +673,12 @@ private fun ThreatMonitor(apps: List<AppHealthStats>) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (apps.isEmpty()) {
                 Text(
-                    text = "No suspicious apps detected right now. (Note: UsageStats permission might be needed).",
+                    text = "No suspicious apps detected right now.",
                     style = MaterialTheme.typography.bodySmall,
                     color = OmniColors.TextTertiary
                 )
             } else {
-                apps.forEach { app ->
+                apps.take(5).forEach { app ->
                     val color = if (app.isSuspicious) OmniColors.Danger else OmniColors.Warning
                     val icon = if (app.isSuspicious) Icons.Default.Warning else Icons.Default.Info
                     val text = "${app.appName} (Drain: ${app.estimatedBatteryDrain.toInt()}%)"
@@ -414,51 +700,4 @@ private fun LogItem(text: String, time: String, icon: ImageVector, color: Color)
             Text(text = time, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary, fontSize = 9.sp)
         }
     }
-}
-
-// ==== PERMISSION UTILS ====
-
-private fun isAccessibilityServiceEnabled(context: Context, accessibilityService: Class<*>): Boolean {
-    var accessibilityEnabled = 0
-    val service = context.packageName + "/" + accessibilityService.canonicalName
-    try {
-        accessibilityEnabled = Settings.Secure.getInt(
-            context.applicationContext.contentResolver,
-            Settings.Secure.ACCESSIBILITY_ENABLED
-        )
-    } catch (e: Settings.SettingNotFoundException) {
-        // Assume false
-    }
-    val stringColonSplitter = TextUtils.SimpleStringSplitter(':')
-    if (accessibilityEnabled == 1) {
-        val settingValue = Settings.Secure.getString(
-            context.applicationContext.contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        )
-        if (settingValue != null) {
-            stringColonSplitter.setString(settingValue)
-            while (stringColonSplitter.hasNext()) {
-                val accessibilityServiceStr = stringColonSplitter.next()
-                if (accessibilityServiceStr.equals(service, ignoreCase = true)) {
-                    return true
-                }
-            }
-        }
-    }
-    return false
-}
-
-private fun isNotificationServiceEnabled(context: Context): Boolean {
-    val pkgName = context.packageName
-    val flat = Settings.Secure.getString(context.contentResolver, "enabled_notification_listeners")
-    if (!TextUtils.isEmpty(flat)) {
-        val names = flat.split(":")
-        for (i in names.indices) {
-            val cn = android.content.ComponentName.unflattenFromString(names[i])
-            if (cn != null && TextUtils.equals(pkgName, cn.packageName)) {
-                return true
-            }
-        }
-    }
-    return false
 }
