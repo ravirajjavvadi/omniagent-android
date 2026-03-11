@@ -27,7 +27,7 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     llama_backend_init();
     
     // BEAST MODE: Initialize NUMA/CPU Affinity for multicore performance
-    llama_numa_init(LLAMA_NUMA_STRATEGY_DISTRIBUTE);
+    llama_numa_init(GGML_NUMA_STRATEGY_DISTRIBUTE);
     
     LOGI("Llama backend and NUMA initialized");
     return JNI_VERSION_1_6;
@@ -234,7 +234,7 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
 
     llama_sampler_free(sampler);
     env->DeleteGlobalRef(thiz);
-    LOGI("FAST Stream done in %lld ms. Tokens: %d", (llama_time_us() - start_time)/1000, n_decode);
+    LOGI("FAST Stream done in %lld ms. Tokens: %d", (long long)((llama_time_us() - start_time)/1000), n_decode);
     return (n_decode > 0);
 }
 
