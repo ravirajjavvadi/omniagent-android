@@ -557,7 +557,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         }
     }
 }
-}
+// END ChatScreen
 
 @Composable
 fun ChatBubble(message: ChatMessage, onCopy: () -> Unit) {
