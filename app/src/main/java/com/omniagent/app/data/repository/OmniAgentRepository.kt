@@ -228,16 +228,8 @@ class OmniAgentRepository(
                 }
             }
             
-            // Wrap in ChatML template for high-fidelity "ChatGPT-style" responses
-            val promptTemplate = """
-                <|im_start|>system
-                You are OmniAgent, a world-class AI assistant and expert programmer. Provide direct, accurate, and high-performance code solutions. Be concise, fast, and professional like ChatGPT.
-                <|im_end|>
-                <|im_start|>user
-                $sanitizedInput
-                <|im_end|>
-                <|im_start|>assistant
-            """.trimIndent()
+            // Compact ChatML format — no leading whitespace = fewer tokens = faster inference
+            val promptTemplate = "<|im_start|>system\nYou are OmniAgent, an expert AI and programmer. Give direct, accurate, fast answers. For code: output only clean code. No filler.<|im_end|>\n<|im_start|>user\n${sanitizedInput}<|im_end|>\n<|im_start|>assistant\n"
 
             // RUN IN IO THREAD to prevent blocking the UI or Pipeline
             launch(Dispatchers.IO) {

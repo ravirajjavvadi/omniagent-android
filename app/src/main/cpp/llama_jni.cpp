@@ -170,63 +170,70 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
     env->ReleaseStringUTFChars(prompt, prompt_text);
 
     llama_kv_cache_clear(g_ctx);
-    llama_sampler * sampler = build_sampler_chain();
+
+    // SPEED OPTIMIZATION: Use a lean sampler chain
+    // Greedy (Temperature=0) is fastest & most deterministic for code/facts
+    // Use Temperature=0.3 for slight creativity while still being fast
+    llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
+    llama_sampler * sampler = llama_sampler_chain_init(sparams);
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.3f));   // Low temp = fast, focused
+    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     const int64_t start_time = llama_time_us();
-    const int32_t n_max_tokens = max_tokens_limit; // Dynamic budget based on user preference
+    const int32_t n_max_tokens = max_tokens_limit;
     llama_token new_token_id = 0;
     int32_t n_decode = 0;
     int n_pos = 0;
 
-    LOGI("Streaming started. Completeness prioritized (No time limit).");
+    LOGI("FAST Streaming started. Tokens budget: %d", n_max_tokens);
+
+    // CRITICAL SPEED FIX: Attach JVM thread ONCE before the loop.
+    // Previously, AttachCurrentThread was called for EVERY token — catastrophic overhead.
+    JNIEnv *callback_env = nullptr;
+    bool attached = false;
+    jint attach_status = g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6);
+    if (attach_status == JNI_EDETACHED) {
+        if (g_jvm->AttachCurrentThread(&callback_env, nullptr) == JNI_OK) {
+            attached = true;
+            LOGI("JVM thread attached ONCE for entire token stream");
+        }
+    } else {
+        callback_env = env; // Already on the correct thread
+    }
 
     llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
 
     for (; n_decode < n_max_tokens; n_decode++) {
-        // User Stop Request
         if (g_stop_requested.load()) break;
-
-        // Context check
-        if (n_pos + batch.n_tokens > llama_n_ctx(g_ctx)) break;
-
-        // Decode
+        if (n_pos + (int)batch.n_tokens > llama_n_ctx(g_ctx)) break;
         if (llama_decode(g_ctx, batch) != 0) break;
         n_pos += batch.n_tokens;
 
-        // Sample
         new_token_id = llama_sampler_sample(sampler, g_ctx, -1);
         llama_sampler_accept(sampler, new_token_id);
 
         if (llama_token_is_eog(g_model, new_token_id)) break;
 
-        // Convert token to text
         char buf[256] = {0};
         int piece_len = llama_token_to_piece(g_model, new_token_id, buf, sizeof(buf) - 1, 0, true);
 
-        if (piece_len > 0) {
+        if (piece_len > 0 && callback_env) {
             buf[piece_len] = '\0';
-            
-            JNIEnv *callback_env = nullptr;
-            bool attached = false;
-            if (g_jvm->GetEnv((void **)&callback_env, JNI_VERSION_1_6) == JNI_EDETACHED) {
-                if (g_jvm->AttachCurrentThread(&callback_env, nullptr) == JNI_OK) attached = true;
-            }
-
-            if (callback_env) {
-                jstring j_piece = callback_env->NewStringUTF(buf);
-                callback_env->CallVoidMethod(thiz, methodId, j_piece);
-                callback_env->DeleteLocalRef(j_piece);
-                if (attached) g_jvm->DetachCurrentThread();
-            }
+            jstring j_piece = callback_env->NewStringUTF(buf);
+            callback_env->CallVoidMethod(thiz, methodId, j_piece);
+            callback_env->DeleteLocalRef(j_piece);
         }
         batch = llama_batch_get_one(&new_token_id, 1);
     }
 
+    if (attached) g_jvm->DetachCurrentThread(); // Detach ONCE at the end
+
     llama_sampler_free(sampler);
     env->DeleteGlobalRef(thiz);
-    LOGI("Streaming complete in %lld ms. Tokens: %d", (llama_time_us() - start_time)/1000, n_decode);
+    LOGI("FAST Stream done in %lld ms. Tokens: %d", (llama_time_us() - start_time)/1000, n_decode);
     return (n_decode > 0);
 }
+
 
 // ============================================================
 // Non-Streaming Response JNI (kept for fallback)
