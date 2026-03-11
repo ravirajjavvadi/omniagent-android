@@ -68,8 +68,8 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     // UI state for scrolling
     val listState = rememberLazyListState()
     
-    // Auto-scroll when messages change or keyboard opens
-    LaunchedEffect(messages.size, uiState.isProcessing) {
+    // Auto-scroll when messages change, processing starts, or text streams
+    LaunchedEffect(messages.size, uiState.isProcessing, messages.lastOrNull()?.text) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
         }
@@ -465,9 +465,7 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
 
         // Input Field
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .imePadding(),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
