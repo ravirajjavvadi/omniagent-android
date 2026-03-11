@@ -68,12 +68,9 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     // UI state for scrolling
     val listState = rememberLazyListState()
     
-    // Auto-scroll when messages change, processing starts, or text streams
-    LaunchedEffect(messages.size, uiState.isProcessing, messages.lastOrNull()?.text) {
-        if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1)
-        }
-    }
+    // With reverseLayout=true, the list always starts at the bottom.
+    // No LaunchedEffect needed — the reversed list naturally shows newest messages.
+    // This is the permanent fix that prevents any jumping behavior.
     
     // Model selection state
     var selectedModel by remember { mutableStateOf(localModelPath ?: "") }
@@ -252,12 +249,15 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
-                modifier = Modifier.background(OmniColors.Surface)
+                modifier = Modifier
+                    .background(OmniColors.Surface)
+                    .fillMaxHeight(),
+                drawerContainerColor = OmniColors.Surface,
             ) {
                 ChatHistorySidebar(
                     history = chatHistory,
                     currentSessionId = currentSessionId,
-                    onSessionClick = { 
+                    onSessionClick = {
                         viewModel.switchSession(it)
                         scope.launch { drawerState.close() }
                     },
@@ -271,279 +271,288 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             }
         }
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(
-                            OmniColors.Background,
-                            OmniColors.Surface.copy(alpha = 0.95f),
-                            OmniColors.Background
+        Scaffold(
+            containerColor = OmniColors.Background,
+            // Top Bar — Fixed, never moves
+            topBar = {
+                Surface(
+                    color = OmniColors.Surface,
+                    shadowElevation = 4.dp,
+                    tonalElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Hamburger / History
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "History", tint = OmniColors.Accent)
+                        }
+
+                        // Chat Title — takes all remaining space
+                        Text(
+                            text = currentSessionTitle,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = OmniColors.TextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        // Model Chip
+                        val currentId = if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+                            selectedModel.substringAfterLast("/").substringAfterLast("\\").substringBeforeLast(".gguf")
+                        } else selectedModel
+                        val modelLabel = modelOptions.find { it.first == currentId }?.second?.substringBefore(" (") ?: "Model"
+
+                        FilterChip(
+                            selected = false,
+                            onClick = { showModelSelector = true },
+                            label = {
+                                Text(modelLabel, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Memory, null, modifier = Modifier.size(14.dp))
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                containerColor = OmniColors.SurfaceElevated,
+                                labelColor = OmniColors.Accent,
+                                iconColor = OmniColors.Accent
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = false,
+                                borderColor = OmniColors.Accent.copy(alpha = 0.3f)
+                            ),
+                            modifier = Modifier.height(32.dp)
+                        )
+
+                        // New Chat
+                        IconButton(onClick = { viewModel.createNewSession() }) {
+                            Icon(Icons.Default.Add, "New Chat", tint = OmniColors.Accent)
+                        }
+                    }
+                }
+            },
+            // Bottom Bar — Fixed above keyboard, NEVER jumps
+            bottomBar = {
+                Surface(
+                    color = OmniColors.Surface,
+                    shadowElevation = 8.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .imePadding()
+                    ) {
+                        // Length selector chips
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            ResponseLength.entries.forEach { length ->
+                                FilterChip(
+                                    selected = responseLength == length,
+                                    onClick = { responseLength = length },
+                                    label = { Text(length.label, style = MaterialTheme.typography.labelSmall) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = OmniColors.Accent.copy(alpha = 0.2f),
+                                        selectedLabelColor = OmniColors.Accent,
+                                        containerColor = OmniColors.SurfaceElevated,
+                                        labelColor = OmniColors.TextSecondary
+                                    ),
+                                    border = FilterChipDefaults.filterChipBorder(
+                                        enabled = true,
+                                        selected = responseLength == length,
+                                        selectedBorderColor = OmniColors.Accent.copy(alpha = 0.5f),
+                                        borderColor = OmniColors.Border
+                                    ),
+                                    modifier = Modifier.height(28.dp)
+                                )
+                            }
+                            Spacer(Modifier.weight(1f))
+                            if (messages.isNotEmpty() && !messages.last().isUser && lastUserMessage.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { viewModel.sendMessage(lastUserMessage, resolvedModelPath, responseLength.maxTokens) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, "Regenerate", tint = OmniColors.Accent, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+
+                        // Input row
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            TextField(
+                                value = inputText,
+                                onValueChange = { viewModel.updateChatInput(it) },
+                                placeholder = {
+                                    Text("Ask anything...", color = OmniColors.TextTertiary)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(24.dp)),
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = OmniColors.SurfaceElevated,
+                                    unfocusedContainerColor = OmniColors.SurfaceElevated,
+                                    focusedTextColor = OmniColors.TextPrimary,
+                                    unfocusedTextColor = OmniColors.TextPrimary,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent
+                                ),
+                                maxLines = 5
+                            )
+
+                            Spacer(Modifier.width(8.dp))
+
+                            // Voice button
+                            IconButton(
+                                onClick = {
+                                    if (isRecording) {
+                                        viewModel.stopVoiceRecording()
+                                    } else {
+                                        val perm = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO)
+                                        if (perm == PackageManager.PERMISSION_GRANTED) viewModel.startVoiceRecording()
+                                        else recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (isRecording) OmniColors.Accent.copy(alpha = 0.8f) else OmniColors.SurfaceElevated,
+                                        RoundedCornerShape(24.dp)
+                                    )
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic, "Voice",
+                                    tint = if (isRecording) Color.White else OmniColors.Primary
+                                )
+                            }
+
+                            Spacer(Modifier.width(8.dp))
+
+                            // Send/Stop button
+                            IconButton(
+                                onClick = {
+                                    if (uiState.isProcessing) {
+                                        viewModel.stopResponse()
+                                    } else if (inputText.isNotBlank()) {
+                                        lastUserMessage = inputText
+                                        viewModel.sendMessage(inputText, resolvedModelPath, responseLength.maxTokens)
+                                        viewModel.updateChatInput("")
+                                    }
+                                },
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (uiState.isProcessing) Color.Red.copy(alpha = 0.8f) else MaterialTheme.colorScheme.primary,
+                                        RoundedCornerShape(24.dp)
+                                    )
+                            ) {
+                                Icon(
+                                    if (uiState.isProcessing) Icons.Default.Stop else Icons.Default.Send,
+                                    if (uiState.isProcessing) "Stop" else "Send",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        ) { innerPadding ->
+            // Messages — reverseLayout=true is the PERMANENT FIX for "page going down"
+            // New messages appear at the bottom naturally, list never jumps on keyboard open
+            SelectionContainer(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            colors = listOf(OmniColors.Background, OmniColors.Surface.copy(alpha = 0.95f), OmniColors.Background)
                         )
                     )
-                )
-                .imePadding()
-                .padding(16.dp)
-        ) {
-            // Chat Header with Model & Length Selectors
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 8.dp)
+                    .padding(innerPadding)
             ) {
-                IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                    Icon(Icons.Default.Menu, contentDescription = "History", tint = OmniColors.Accent)
-                }
-                Text(
-                    text = currentSessionTitle,
-                    style = MaterialTheme.typography.headlineSmall,
-                    color = OmniColors.TextPrimary,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f)
-                )
-                
-                // Model Selector (Icon + Label)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                LazyColumn(
+                    state = listState,
                     modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showModelSelector = true }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                        .fillMaxSize()
+                        .padding(horizontal = 12.dp),
+                    reverseLayout = true,       // ← PERMANENT SCROLL FIX
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(Icons.Default.Memory, contentDescription = null, tint = OmniColors.Accent, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(4.dp))
-                    val currentId = if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
-                        selectedModel.substringAfterLast("/").substringAfterLast("\\").substringBeforeLast(".gguf")
-                    } else {
-                        selectedModel
-                    }
-                    Text(
-                        text = modelOptions.find { it.first == currentId }?.second?.substringBefore(" (") ?: "Select Model",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = OmniColors.Accent
-                    )
-                }
-                
-                Spacer(Modifier.width(8.dp))
-
-                // Length Selector (Icon + Label)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { showLengthSelector = true }
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Tune, contentDescription = null, tint = OmniColors.Accent, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        text = responseLength.label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = OmniColors.Accent
-                    )
-                }
-                
-                // Regenerate Button
-                if (messages.isNotEmpty() && !messages.last().isUser && lastUserMessage.isNotEmpty()) {
-                    IconButton(onClick = { 
-                        viewModel.sendMessage(lastUserMessage, resolvedModelPath, responseLength.maxTokens)
-                    }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate", tint = OmniColors.Accent)
-                    }
-                }
-                
-                IconButton(onClick = { viewModel.createNewSession() }) {
-                    Icon(Icons.Default.Add, contentDescription = "New Chat", tint = OmniColors.Accent)
-                }
-            }
-            
-            // Active model indicator
-            Row(
-                modifier = Modifier.padding(start = 12.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val currentId = if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
-                    selectedModel.substringAfterLast("/").substringAfterLast("\\").substringBeforeLast(".gguf")
-                } else {
-                    selectedModel
-                }
-                val activeModelName = modelOptions.find { it.first == currentId }?.second ?: (if (selectedModel.isNotEmpty()) "Offline AI Active" else "No Brain Selected")
-                
-                Icon(
-                    imageVector = Icons.Default.Bolt,
-                    contentDescription = null,
-                    tint = OmniColors.Accent,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(Modifier.width(4.dp))
-                Text(
-                    text = activeModelName,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = OmniColors.Accent,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(Modifier.width(8.dp))
-                Surface(
-                    color = OmniColors.SurfaceElevated,
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Text(
-                        text = responseLength.label,
-                        color = OmniColors.TextSecondary,
-                        style = MaterialTheme.typography.labelSmall,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Text(
-                text = if (localModelPath != null) "⚡ Offline AI Active — Full answers available" 
-                       else "⚠ Basic mode — Download an AI model in Settings for full answers",
-                style = MaterialTheme.typography.bodySmall,
-                color = if (localModelPath != null) OmniColors.Accent else OmniColors.TextTertiary,
-                modifier = Modifier.padding(start = 48.dp, bottom = 8.dp)
-            )
-
-        // Messages List
-        SelectionContainer(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                reverseLayout = false
-            ) {
-                items(messages) { message ->
-                    ChatBubble(message, onCopy = {
-                        clipboardManager.setText(AnnotatedString(message.text))
-                        Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
-                    })
-                }
-                if (uiState.isProcessing) {
-                    item {
-                        TextButton(
-                            onClick = { showThinkingPopup = true },
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Processing indicator (shown at top of reversed list = visually at bottom)
+                    if (uiState.isProcessing) {
+                        item {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp, horizontal = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
                                 CircularProgressIndicator(
-                                    modifier = Modifier.size(12.dp),
+                                    modifier = Modifier.size(14.dp),
                                     strokeWidth = 2.dp,
                                     color = OmniColors.Accent
                                 )
                                 Spacer(Modifier.width(8.dp))
                                 Text(
-                                    text = "AI Kernel is thinking...",
+                                    "OmniAgent is thinking...",
                                     color = OmniColors.Accent,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontWeight = FontWeight.Medium
+                                    style = MaterialTheme.typography.bodySmall
                                 )
-                                Spacer(Modifier.width(8.dp))
-                                Surface(
-                                    color = OmniColors.Accent.copy(alpha = 0.2f),
-                                    shape = RoundedCornerShape(4.dp)
-                                ) {
+                            }
+                        }
+                    }
+                    // Messages in reverse order (reverseLayout handles the visual flip)
+                    items(messages.asReversed()) { message ->
+                        ChatBubble(message, onCopy = {
+                            clipboardManager.setText(AnnotatedString(message.text))
+                            Toast.makeText(context, "Copied", Toast.LENGTH_SHORT).show()
+                        })
+                    }
+                    // Empty state
+                    if (messages.isEmpty() && !uiState.isProcessing) {
+                        item {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 120.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("⚡", style = MaterialTheme.typography.displayMedium)
+                                    Spacer(Modifier.height(12.dp))
                                     Text(
-                                        text = "8 THREADS",
-                                        color = OmniColors.Accent,
-                                        style = MaterialTheme.typography.labelSmall,
-                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp),
+                                        "OmniAgent Ready",
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = OmniColors.TextPrimary,
                                         fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "Ask me anything — code, analysis, or general questions.",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = OmniColors.TextSecondary,
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                        modifier = Modifier.padding(horizontal = 32.dp)
                                     )
                                 }
                             }
                         }
                     }
                 }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Input Field
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            TextField(
-                value = inputText,
-                onValueChange = { viewModel.updateChatInput(it) },
-                placeholder = { Text("Ask anything...") },
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(24.dp)),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = OmniColors.SurfaceElevated,
-                    unfocusedContainerColor = OmniColors.SurfaceElevated,
-                    focusedTextColor = OmniColors.TextPrimary,
-                    unfocusedTextColor = OmniColors.TextPrimary,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                )
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Voice Assistant Button
-            IconButton(
-                onClick = {
-                    if (isRecording) {
-                        viewModel.stopVoiceRecording()
-                    } else {
-                        val permissionCheck = ContextCompat.checkSelfPermission(
-                            context,
-                            Manifest.permission.RECORD_AUDIO
-                        )
-                        if (permissionCheck == PackageManager.PERMISSION_GRANTED) {
-                            viewModel.startVoiceRecording()
-                        } else {
-                            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .background(
-                        if (isRecording) OmniColors.Accent.copy(alpha = 0.8f) 
-                        else OmniColors.SurfaceElevated, 
-                        RoundedCornerShape(24.dp)
-                    )
-                    .size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Mic,
-                    contentDescription = "Voice Input",
-                    tint = if (isRecording) Color.White else OmniColors.Primary
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            IconButton(
-                onClick = {
-                    if (uiState.isProcessing) {
-                        viewModel.stopResponse()
-                    } else if (inputText.isNotBlank()) {
-                        lastUserMessage = inputText
-                        viewModel.sendMessage(inputText, resolvedModelPath, responseLength.maxTokens)
-                        viewModel.updateChatInput("")
-                    }
-                },
-                modifier = Modifier
-                    .background(
-                        if (uiState.isProcessing) Color.Red.copy(alpha = 0.8f) 
-                        else MaterialTheme.colorScheme.primary, 
-                        RoundedCornerShape(24.dp)
-                    )
-                    .size(48.dp)
-            ) {
-                Icon(
-                    imageVector = if (uiState.isProcessing) Icons.Default.Stop else Icons.Default.Send,
-                    contentDescription = if (uiState.isProcessing) "Stop" else "Send",
-                    tint = Color.White
-                )
             }
         }
     }
