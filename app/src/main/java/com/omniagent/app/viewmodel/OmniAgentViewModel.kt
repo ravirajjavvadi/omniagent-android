@@ -514,7 +514,12 @@ class OmniAgentViewModel(
      * Uses the unified streaming pipeline in the repository for <5s responses.
      */
     fun sendMessage(text: String, localModelPath: String? = null, maxTokens: Int = 1024) {
-        if (text.isBlank()) return
+    if (text.isBlank()) return
+
+    // If it's a new chat, use the first message as the title
+    if (chatMessages.value.isEmpty() && _currentSessionTitle.value == "New Chat") {
+        _currentSessionTitle.value = if (text.length > 20) text.take(17) + "..." else text
+    }
 
         val userMsg = ChatMessage(text = text, isUser = true)
         _chatMessages.update { it + userMsg }
@@ -565,6 +570,23 @@ class OmniAgentViewModel(
 
                     if (update.isComplete) {
                         _uiState.update { it.copy(isProcessing = false) }
+
+                        // Save chat to database for sidebar history (ChatGPT/Gemini style)
+                        val fullAiResponse = _chatMessages.value.find { it.id == aiMsgId }?.text ?: ""
+                        if (fullAiResponse.isNotEmpty()) {
+                            viewModelScope.launch {
+                                try {
+                                    repository.saveChatMessage(
+                                        userInput = text,
+                                        aiResponse = fullAiResponse,
+                                        sessionId = currentSessionId.value,
+                                        sessionTitle = currentSessionTitle.value
+                                    )
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to save chat message", e)
+                                }
+                            }
+                        }
                     }
                 }
             } catch (e: Exception) {

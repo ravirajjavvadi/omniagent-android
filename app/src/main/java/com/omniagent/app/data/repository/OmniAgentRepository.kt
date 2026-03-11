@@ -161,6 +161,31 @@ class OmniAgentRepository(
         analysisLogDao.deleteSession(sessionId)
 
     /**
+     * Save a chat message to the database for sidebar history.
+     * This enables the ChatGPT/Gemini-style persistent chat history.
+     */
+    override suspend fun saveChatMessage(
+        userInput: String, 
+        aiResponse: String, 
+        sessionId: String, 
+        sessionTitle: String
+    ) = withContext(Dispatchers.IO) {
+        // Store chat as a simple log entry - the AI response is stored in resultJson
+        val chatLog = AnalysisLog(
+            userInput = userInput,
+            classifiedModule = "chat",
+            confidence = 1.0,
+            confidenceLevel = "high",
+            resultJson = CryptoManager.encrypt(aiResponse),
+            reasoningJson = CryptoManager.encrypt("[]"),
+            sessionId = sessionId,
+            sessionTitle = sessionTitle,
+            userRole = "user"
+        )
+        analysisLogDao.insertLog(chatLog)
+    }
+
+    /**
      * Decrypt a log's result JSON (admin only).
      */
     override fun decryptLogResult(encryptedJson: String): String {

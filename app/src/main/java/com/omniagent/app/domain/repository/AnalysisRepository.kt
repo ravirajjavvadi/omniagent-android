@@ -49,6 +49,10 @@ interface AnalysisRepository {
     suspend fun renameSession(sessionId: String, newTitle: String)
     suspend fun deleteSession(sessionId: String)
 
+    // === CHAT PERSISTENCE ===
+    /** Save a chat message to the database for sidebar history */
+    suspend fun saveChatMessage(userInput: String, aiResponse: String, sessionId: String, sessionTitle: String)
+
     // === NEW POWER FEATURES ===
     suspend fun performSystemScan(): EngineResult
     suspend fun tailorResume(resumeText: String, jobDescription: String): EngineResult

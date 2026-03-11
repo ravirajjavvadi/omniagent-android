@@ -80,9 +80,9 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     LOGI("Model file loaded successfully");
     g_stop_requested = false;
 
-    // Create context — 1024 is a good balance for accuracy vs memory
+    // Create context — 4096 for unlimited long responses without hitting context limit
     llama_context_params ctx_params = llama_context_default_params();
-    ctx_params.n_ctx = 1024;
+    ctx_params.n_ctx = 4096;
     ctx_params.n_threads = 10;       // Beast Mode: 10 threads for multi-core performance
     ctx_params.n_threads_batch = 10; // Optimized for ultra-fast prompt processing
 
@@ -99,7 +99,7 @@ Java_com_omniagent_app_engine_LlamaEngine_loadModelJNI(JNIEnv *env, jobject thiz
     strncpy(g_loaded_path, model_path, sizeof(g_loaded_path) - 1);
     env->ReleaseStringUTFChars(path, model_path);
 
-    LOGI("Model and context initialized successfully. n_ctx=1024, threads=6 (Stability Optimized)");
+    LOGI("Model and context initialized successfully. n_ctx=4096, threads=10 (Beast Mode)");
     return true;
 }
 
