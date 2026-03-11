@@ -180,7 +180,8 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
     // Use Temperature=0.3 for slight creativity while still being fast
     llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
     llama_sampler * sampler = llama_sampler_chain_init(sparams);
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.3f));   // Low temp = fast, focused
+    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.1f));   // Deterministic for 0.5B models
+    llama_sampler_chain_add(sampler, llama_sampler_init_min_p(0.05f, 1)); // Prune hallucinations
     llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
 
     const int64_t start_time = llama_time_us();

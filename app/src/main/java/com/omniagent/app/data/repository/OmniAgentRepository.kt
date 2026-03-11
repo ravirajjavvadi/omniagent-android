@@ -255,8 +255,17 @@ class OmniAgentRepository(
                 }
             }
             
-            // Compact ChatML format — no leading whitespace = fewer tokens = faster inference
-            val promptTemplate = "<|im_start|>system\nYou are OmniAgent, an expert AI and programmer. Give direct, accurate, fast answers. For code: output only clean code. No filler.<|im_end|>\n<|im_start|>user\n${sanitizedInput}<|im_end|>\n<|im_start|>assistant\n"
+            // Format history into ChatML for context-awareness
+            val formattedHistory = history?.split("\n")?.filter { it.isNotBlank() }?.joinToString("\n") { line ->
+                when {
+                    line.startsWith("User: ") -> "<|im_start|>user\n${line.removePrefix("User: ")}<|im_end|>"
+                    line.startsWith("AI: ") -> "<|im_start|>assistant\n${line.removePrefix("AI: ")}<|im_end|>"
+                    else -> ""
+                }
+            }?.let { if (it.isNotEmpty()) it + "\n" else "" } ?: ""
+
+            // Grounding prompt + History + Current Input
+            val promptTemplate = "<|im_start|>system\nYou are OmniAgent, a world-class AI. Stay factual and grounded. If you don't know an answer, say 'I don't know'. Do not hallucinate.<|im_end|>\n${formattedHistory}<|im_start|>user\n${sanitizedInput}<|im_end|>\n<|im_start|>assistant\n"
 
             // RUN IN IO THREAD to prevent blocking the UI or Pipeline
             launch(Dispatchers.IO) {

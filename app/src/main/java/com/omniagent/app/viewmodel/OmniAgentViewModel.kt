@@ -356,16 +356,24 @@ class OmniAgentViewModel(
             _currentSessionId.value = session.id
             _currentSessionTitle.value = session.title
             repository.getLogsBySession(session.id).collect { logs ->
-                _chatMessages.value = logs.map { log ->
-                    ChatMessage(
-                        id = log.id.toString(),
+                _chatMessages.value = logs.flatMap { log ->
+                    // 1. Reconstruct User Message
+                    val userMsg = ChatMessage(
+                        id = "${log.id}_user",
                         text = log.userInput,
                         isUser = true,
                         timestamp = log.timestamp
-                        // Note: For simplicity in history view, we might only show user inputs 
-                        // or reconstruct AI replies if they were stored separately.
-                        // For now, mapping logs to messages.
                     )
+                    
+                    // 2. Reconstruct AI Message (decrypted from resultJson)
+                    val aiMsg = ChatMessage(
+                        id = "${log.id}_ai",
+                        text = repository.decryptLogResult(log.resultJson),
+                        isUser = false,
+                        timestamp = log.timestamp
+                    )
+                    
+                    listOf(userMsg, aiMsg)
                 }
             }
         }
