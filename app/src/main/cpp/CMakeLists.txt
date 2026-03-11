@@ -6,19 +6,20 @@ project("omniagent")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_STANDARD 11)
 
-# Llama.cpp configuration
+# BEAST MODE PERFORMANCE FLAGS
+if(ANDROID)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -DNDEBUG -march=armv8-a+simd -flto")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -DNDEBUG -march=armv8-a+simd -flto")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -flto")
+    message(STATUS "Llama Beast Mode Enabled: ARM NEON + O3 + LTO")
+endif()
+
+# Llama.cpp Hardware Acceleration
 set(LLAMA_BUILD_TESTS OFF CACHE BOOL "")
 set(LLAMA_BUILD_EXAMPLES OFF CACHE BOOL "")
 set(LLAMA_BUILD_SERVER OFF CACHE BOOL "")
-set(LLAMA_AVX OFF CACHE BOOL "")
-set(LLAMA_AVX2 OFF CACHE BOOL "")
-set(LLAMA_FMA OFF CACHE BOOL "")
-set(LLAMA_F16C OFF CACHE BOOL "")
-set(LLAMA_ACCELERATE OFF CACHE BOOL "")
-set(LLAMA_OPENBLAS OFF CACHE BOOL "")
-set(LLAMA_CUBLAS OFF CACHE BOOL "")
-set(LLAMA_CLBLAST OFF CACHE BOOL "")
-set(LLAMA_METAL OFF CACHE BOOL "")
+set(LLAMA_NATIVE ON CACHE BOOL "")
+set(LLAMA_LTO ON CACHE BOOL "")
 
 # Add llama.cpp as a subdirectory
 add_subdirectory(llama.cpp)

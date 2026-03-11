@@ -25,7 +25,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
     g_jvm = vm;
     LOGI("JNI_OnLoad called, JavaVM stored");
     llama_backend_init();
-    LOGI("Llama backend initialized");
+    
+    // BEAST MODE: Initialize NUMA/CPU Affinity for multicore performance
+    llama_numa_init(LLAMA_NUMA_STRATEGY_DISTRIBUTE);
+    
+    LOGI("Llama backend and NUMA initialized");
     return JNI_VERSION_1_6;
 }
 
