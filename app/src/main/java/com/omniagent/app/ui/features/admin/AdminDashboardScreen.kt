@@ -52,7 +52,7 @@ fun AdminDashboardScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Admin Control Panel",
+                text = "OmniAgent Control Panel",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary
@@ -169,10 +169,10 @@ fun AdminDiagnosticsTab() {
         // Simulated Storage and DB sizes
         Card(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
             Column(Modifier.padding(16.dp)) {
-                Text("Database Engine Status: ONLINE", color = MaterialTheme.colorScheme.primary)
+                Text("AI Neural Pipeline: HYBRID (Dual-Path)", color = MaterialTheme.colorScheme.primary)
                 Text("Python Kernel Sandbox: ISOLATED", color = MaterialTheme.colorScheme.primary)
                 Text("Encryption Keystore: SECURED (AES-256-GCM)", color = MaterialTheme.colorScheme.primary)
-                Text("Network Access: REVOKED (Zero Internet)", color = Color(0xFF10B981))
+                Text("Network Access: DUAL-MODE (Offline First + Duck.ai)", color = Color(0xFF10B981))
             }
         }
 

@@ -83,16 +83,25 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     // Regenerate state
     var lastUserMessage by remember { mutableStateOf("") }
 
-    // Model options
-    val modelOptions = listOf(
+    // Model Categories
+    val duckModels = listOf(
+        "gpt-4o-mini" to "GPT-4o mini (Free)",
+        "claude-3-haiku" to "Claude 3 Haiku (Free)",
+        "llama-3.3-70b" to "Llama 3.3 70B (Free)",
+        "mixtral-8x7b" to "Mixtral 8x7B (Free)"
+    )
+    val nativeModels = listOf(
         "qwen2.5_0_5b" to "Qwen 0.5B (Fast)",
         "qwen2.5_1_5b" to "Qwen 1.5B (Balanced)", 
         "gemma_2_2b" to "Gemma 2.2B (Advanced)"
     )
 
     // Resolve the internal key or external path to a valid engine path
+    val isOnlineModel = duckModels.any { it.first == selectedModel }
     val resolvedModelPath = remember(selectedModel, localModelPath) {
-        if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+        if (isOnlineModel) {
+            null // No local path for online models
+        } else if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
             selectedModel
         } else if (selectedModel.isNotEmpty()) {
             context.getExternalFilesDir(null)?.absolutePath + "/$selectedModel.gguf"
@@ -175,27 +184,24 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             onDismissRequest = { showModelSelector = false },
             title = { Text("Select AI Model", color = OmniColors.TextPrimary) },
             text = {
-                Column {
-                    modelOptions.forEach { (id, name) ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { 
-                                    selectedModel = id
-                                    showModelSelector = false 
-                                }
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            RadioButton(
-                                selected = selectedModel == id,
-                                onClick = { 
-                                    selectedModel = id
-                                    showModelSelector = false 
-                                }
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(name, color = OmniColors.TextPrimary)
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    item {
+                        Text("Online (Duck.ai - Free)", style = MaterialTheme.typography.labelLarge, color = Color(0xFF10B981), modifier = Modifier.padding(8.dp))
+                    }
+                    items(duckModels) { (id, name) ->
+                        ModelRow(id, name, selectedModel == id) {
+                            selectedModel = id
+                            showModelSelector = false
+                        }
+                    }
+                    item {
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text("Native (Offline)", style = MaterialTheme.typography.labelLarge, color = OmniColors.Accent, modifier = Modifier.padding(8.dp))
+                    }
+                    items(nativeModels) { (id, name) ->
+                        ModelRow(id, name, selectedModel == id) {
+                            selectedModel = id
+                            showModelSelector = false
                         }
                     }
                 }
@@ -206,6 +212,31 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             containerColor = OmniColors.SurfaceElevated
         )
     }
+}
+
+@Composable
+fun ModelRow(
+    id: String,
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = isSelected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(selectedColor = if (id.contains("gpt") || id.contains("claude")) Color(0xFF10B981) else OmniColors.Accent)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(name, color = OmniColors.TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+    }
+}
 
     // Length Selector Dialog
     if (showLengthSelector) {

@@ -234,7 +234,7 @@ object BeastModePulseManager {
 
     private fun getNetworkThreatLevel(status: Int): ThreatLevel {
         return when (status) {
-            NETWORK_OFFLINE -> ThreatLevel.DANGER
+            NETWORK_OFFLINE -> ThreatLevel.SAFE // Offline is safe for OMNI
             NETWORK_WEAK -> ThreatLevel.CAUTION
             else -> ThreatLevel.SAFE
         }
@@ -246,7 +246,8 @@ object BeastModePulseManager {
         networkStatus: Int
     ): ThreatLevel {
         // Any single danger-level metric triggers danger state
-        if (cpuTemp >= TEMP_DANGER || ramPercent >= RAM_DANGER || networkStatus == NETWORK_OFFLINE) {
+        // NOTE: NETWORK_OFFLINE is excluded from DANGER since OMNI is offline-first.
+        if (cpuTemp >= TEMP_DANGER || ramPercent >= RAM_DANGER) {
             return ThreatLevel.DANGER
         }
 

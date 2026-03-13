@@ -264,8 +264,9 @@ class OmniAgentRepository(
                 }
             }?.let { if (it.isNotEmpty()) it + "\n" else "" } ?: ""
 
-            // Grounding prompt + History + Current Input
-            val promptTemplate = "<|im_start|>system\nYou are OmniAgent, a world-class AI. Stay factual and grounded. If you don't know an answer, say 'I don't know'. Do not hallucinate.<|im_end|>\n${formattedHistory}<|im_start|>user\n${sanitizedInput}<|im_end|>\n<|im_start|>assistant\n"
+            // Grounding prompt + Dynamic Context + History + Current Input
+            val currentDateTime = java.text.SimpleDateFormat("EEEE, MMMM dd, yyyy 'at' HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            val promptTemplate = "<|im_start|>system\nYou are OmniAgent, a world-class AI. Stay factual and grounded. Current time is $currentDateTime. If you don't know an answer, say 'I don't know'. Do not hallucinate.<|im_end|>\n${formattedHistory}<|im_start|>user\n${sanitizedInput}<|im_end|>\n<|im_start|>assistant\n"
 
             // RUN IN IO THREAD to prevent blocking the UI or Pipeline
             launch(Dispatchers.IO) {

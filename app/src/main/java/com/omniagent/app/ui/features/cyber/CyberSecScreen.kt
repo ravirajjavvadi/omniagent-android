@@ -243,7 +243,7 @@ private fun BeastModePulseOrb(pulse: BeastModePulse?) {
     val threatLevel = pulse?.overallThreatLevel ?: BeastModePulseManager.ThreatLevel.SAFE
     
     val (statusText, statusColor, bgGlow) = when (threatLevel) {
-        BeastModePulseManager.ThreatLevel.DANGER -> Triple("DANGER", OmniColors.Danger, OmniColors.Danger.copy(alpha = 0.3f))
+        BeastModePulseManager.ThreatLevel.DANGER -> Triple("ALERT", OmniColors.Danger, OmniColors.Danger.copy(alpha = 0.3f))
         BeastModePulseManager.ThreatLevel.CAUTION -> Triple("CAUTION", OmniColors.Warning, OmniColors.Warning.copy(alpha = 0.3f))
         else -> Triple("SECURE", OmniColors.Primary, OmniColors.Primary.copy(alpha = 0.3f))
     }
@@ -286,8 +286,8 @@ private fun BeastModePulseOrb(pulse: BeastModePulse?) {
             )
             Text(
                 text = when (threatLevel) {
-                    BeastModePulseManager.ThreatLevel.DANGER -> "Threats Detected"
-                    BeastModePulseManager.ThreatLevel.CAUTION -> "Monitored"
+                    BeastModePulseManager.ThreatLevel.DANGER -> "Resource Critical"
+                    BeastModePulseManager.ThreatLevel.CAUTION -> "Monitoring Load"
                     else -> "No Threats Detected"
                 },
                 style = MaterialTheme.typography.labelMedium,

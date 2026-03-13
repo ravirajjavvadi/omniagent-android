@@ -58,11 +58,45 @@ class OmniGuardianService : Service() {
         return START_STICKY
     }
 
+    private val healthManager by lazy { DeviceHealthManager(this) }
+
     private fun startDeviceMonitoring() {
         Log.d(TAG, "Initializing Live Scanning Engine...")
-        // TODO: Implement UsageStats polling
-        // TODO: Implement BatteryManager correlator
-        // TODO: Broadcast updates to UI
+        
+        serviceScope.launch {
+            while (true) {
+                try {
+                    Log.d(TAG, "Guardian Live Scan: Checking device vitals...")
+                    val vitals = healthManager.getVitals()
+                    Log.d(TAG, "Vitals: Battery ${vitals.batteryPercent}%, RAM Free ${vitals.ramFreeBytes / 1024 / 1024}MB")
+                    
+                    if (vitals.batteryPercent < 15) {
+                        Log.w(TAG, "Guardian ALERT: Low Battery detected. Optimizing AI Neural Path.")
+                    }
+
+                    // Scan for suspicious app activity
+                    val suspicious = healthManager.scanAppActivity().filter { it.isSuspicious }
+                    if (suspicious.isNotEmpty()) {
+                        Log.w(TAG, "Guardian ALERT: ${suspicious.size} suspicious background processes detected!")
+                        suspicious.forEach { app ->
+                            Log.d(TAG, " - Suspicious: ${app.appName} (${app.packageName})")
+                        }
+                    }
+
+                    // Correlate battery drain
+                    val highDrain = healthManager.scanAppActivity().filter { it.estimatedBatteryDrain > 50f }
+                    if (highDrain.isNotEmpty()) {
+                        Log.w(TAG, "Guardian ALERT: High battery drain detected from ${highDrain.size} apps.")
+                    }
+
+                } catch (e: Exception) {
+                    Log.e(TAG, "Guardian Scan Failed: ${e.message}")
+                }
+                
+                // Sleep for 1 minute between scans to conserve battery while staying "Active"
+                kotlinx.coroutines.delay(60_000)
+            }
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {

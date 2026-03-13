@@ -219,13 +219,6 @@ private fun TopBar(uiState: OmniAgentUiState) {
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Role indicator
-            StatusBadge(
-                text = uiState.currentRole.displayName,
-                color = if (uiState.currentRole == UserRole.ADMIN)
-                    OmniColors.Warning else OmniColors.Secondary
-            )
-            Spacer(modifier = Modifier.width(8.dp))
             // Offline indicator
             Box(
                 modifier = Modifier
@@ -1014,22 +1007,6 @@ private fun SettingsTab(
                 icon = Icons.Default.Security,
                 iconColor = OmniColors.Warning
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Current Role",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OmniColors.TextSecondary
-                    )
-                    StatusBadge(
-                        text = uiState.currentRole.displayName,
-                        color = if (uiState.currentRole == UserRole.ADMIN)
-                            OmniColors.Warning else OmniColors.Secondary
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -1081,16 +1058,7 @@ private fun SettingsTab(
                         )
                     }
                 } else {
-                    Button(
-                        onClick = onSwitchToUser,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = OmniColors.SurfaceBright
-                        ),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Text("Switch to User Role", color = OmniColors.TextPrimary)
-                    }
+                    // Role hidden per user request
                 }
             }
         }

@@ -89,7 +89,7 @@ data class AnalysisPipelineResult(
  * Represents user roles for RBAC.
  */
 enum class UserRole(val displayName: String) {
-    ADMIN("Administrator"),
+    ADMIN("OmniAgent"),
     USER("Standard User");
 
     companion object {
