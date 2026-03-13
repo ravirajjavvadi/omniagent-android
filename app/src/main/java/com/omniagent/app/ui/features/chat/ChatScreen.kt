@@ -96,6 +96,8 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
         "gemma_2_2b" to "Gemma 2.2B (Advanced)"
     )
 
+    val modelOptions = duckModels + nativeModels
+
     // Resolve the internal key or external path to a valid engine path
     val isOnlineModel = duckModels.any { it.first == selectedModel }
     val resolvedModelPath = remember(selectedModel, localModelPath) {
@@ -212,31 +214,6 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             containerColor = OmniColors.SurfaceElevated
         )
     }
-}
-
-@Composable
-fun ModelRow(
-    id: String,
-    name: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick,
-            colors = RadioButtonDefaults.colors(selectedColor = if (id.contains("gpt") || id.contains("claude")) Color(0xFF10B981) else OmniColors.Accent)
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(name, color = OmniColors.TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
-    }
-}
 
     // Length Selector Dialog
     if (showLengthSelector) {
@@ -824,4 +801,28 @@ fun RenameDialog(
         titleContentColor = OmniColors.TextPrimary,
         textContentColor = OmniColors.TextSecondary
     )
+}
+
+@Composable
+fun ModelRow(
+    id: String,
+    name: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = isSelected,
+            onClick = onClick,
+            colors = RadioButtonDefaults.colors(selectedColor = if (id.contains("gpt") || id.contains("claude")) Color(0xFF10B981) else OmniColors.Accent)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(name, color = OmniColors.TextPrimary, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
+    }
 }
