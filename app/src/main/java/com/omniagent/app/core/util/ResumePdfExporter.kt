@@ -24,36 +24,47 @@ object ResumePdfExporter {
         val paint = Paint()
         var yPos = 50f
 
+        // Template Configuration
+        val (headerColor, accentColor, showSidebar) = when(data.templateId) {
+            1 -> Triple(Color.parseColor("#3B82F6"), Color.parseColor("#93C5FD"), false) // Modern
+            2 -> Triple(Color.parseColor("#8B5CF6"), Color.parseColor("#C4B5FD"), false) // Creative
+            3 -> Triple(Color.parseColor("#1F2937"), Color.parseColor("#D1D5DB"), true)  // Executive
+            else -> Triple(Color.BLACK, Color.GRAY, false) // Basic
+        }
+
         // Draw Header
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 24f
-        paint.color = Color.BLACK
+        paint.color = headerColor
         canvas.drawText(data.fullName.ifBlank { "Professional Resume" }, 50f, yPos, paint)
         
         yPos += 30f
         paint.textSize = 12f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        paint.color = Color.DKGRAY
         canvas.drawText("${data.email} | ${data.phone}", 50f, yPos, paint)
         
         // Draw Separator
         yPos += 20f
-        paint.strokeWidth = 1f
+        paint.color = accentColor
+        paint.strokeWidth = 2f
         canvas.drawLine(50f, yPos, 545f, yPos, paint)
         
         // Draw Sections
         yPos += 40f
+        paint.color = Color.BLACK
         if (data.jobTitle.isNotBlank()) {
-            drawSection(canvas, paint, "EXPERIENCE: ${data.jobTitle}", data.experienceDescription, 50f, yPos).also { yPos = it }
+            drawSection(canvas, paint, "EXPERIENCE: ${data.jobTitle}", data.experienceDescription, 50f, yPos, headerColor).also { yPos = it }
             yPos += 20f
         }
         
         if (data.education.isNotBlank()) {
-            drawSection(canvas, paint, "EDUCATION", data.education, 50f, yPos).also { yPos = it }
+            drawSection(canvas, paint, "EDUCATION", data.education, 50f, yPos, headerColor).also { yPos = it }
             yPos += 20f
         }
 
         if (data.skills.isNotBlank()) {
-            drawSection(canvas, paint, "TECHNICAL SKILLS", data.skills, 50f, yPos).also { yPos = it }
+            drawSection(canvas, paint, "TECHNICAL SKILLS", data.skills, 50f, yPos, headerColor).also { yPos = it }
         }
 
         pdfDocument.finishPage(page)
@@ -74,10 +85,11 @@ object ResumePdfExporter {
         }
     }
 
-    private fun drawSection(canvas: Canvas, paint: Paint, title: String, content: String, x: Float, y: Float): Float {
+    private fun drawSection(canvas: Canvas, paint: Paint, title: String, content: String, x: Float, y: Float, headerColor: Int): Float {
         var currentY = y
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         paint.textSize = 14f
+        paint.color = headerColor
         canvas.drawText(title, x, currentY, paint)
         
         currentY += 20f

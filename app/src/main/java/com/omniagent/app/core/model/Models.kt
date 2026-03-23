@@ -35,7 +35,8 @@ data class ResumeData(
     val company: String = "",
     val experienceDescription: String = "",
     val education: String = "",
-    val skills: String = ""
+    val skills: String = "",
+    val templateId: Int = 0
 ) {
     fun toMarkdown(): String = """
         # $fullName

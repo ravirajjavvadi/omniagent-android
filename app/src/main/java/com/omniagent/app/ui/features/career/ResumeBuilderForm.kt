@@ -18,11 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
+import com.omniagent.app.core.model.ResumeData
 
 @Composable
 fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var currentStep by remember { mutableStateOf(1) }
-    val totalSteps = 4
+    val totalSteps = 6
     val scrollState = rememberScrollState()
     val resumeData by viewModel.careerResumeData.collectAsState()
 
@@ -35,6 +36,7 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
     var experience by remember { mutableStateOf(resumeData.experienceDescription) }
     var education by remember { mutableStateOf(resumeData.education) }
     var skills by remember { mutableStateOf(resumeData.skills) }
+    var templateId by remember { mutableStateOf(resumeData.templateId) }
 
     Column(
         modifier = Modifier
@@ -75,6 +77,10 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
                 )
                 3 -> EducationForm(education, { education = it })
                 4 -> SkillsForm(skills, { skills = it })
+                5 -> TemplateSelectionForm(templateId, { templateId = it })
+                6 -> ResumePreviewScreen(
+                    ResumeData(fullName, email, phone, jobTitle, company, experience, education, skills, templateId)
+                )
             }
         }
 
@@ -109,8 +115,8 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
                     if (currentStep < totalSteps) {
                         currentStep++
                     } else {
-                        val finalData = com.omniagent.app.core.model.ResumeData(
-                            fullName, email, phone, jobTitle, company, experience, education, skills
+                        val finalData = ResumeData(
+                            fullName, email, phone, jobTitle, company, experience, education, skills, templateId
                         )
                         viewModel.updateResumeData(finalData)
                         viewModel.runCareerAudit(finalData.toMarkdown())
