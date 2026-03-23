@@ -71,6 +71,13 @@ class MainActivity : ComponentActivity() {
                                 // Default tab
                             }
                         }
+                        
+                        // Handle Specialized Action Triggers (e.g., SCAN from widget)
+                        intent?.getStringExtra("trigger_action")?.let { action ->
+                            if (action == "SCAN") {
+                                viewModel.analyzeInput("vulnerability scan")
+                            }
+                        }
                     }
 
                     val uiState by viewModel.uiState.collectAsStateWithLifecycle()

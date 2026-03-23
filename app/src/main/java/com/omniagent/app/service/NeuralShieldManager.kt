@@ -32,11 +32,13 @@ object NeuralShieldManager {
             return false
         }
 
+        val expectedComponentName = "${context.packageName}/$SERVICE_CLASS_NAME"
+        
         // Check for exact class name match
         return enabledServices.any { serviceInfo ->
             serviceInfo == SERVICE_CLASS_NAME ||
             serviceInfo.endsWith(".$SERVICE_CLASS_NAME") ||
-            serviceInfo == "com.omniagent.app/com.omniagent.app.service.OmniAccessibilityLinkScanner"
+            serviceInfo == expectedComponentName
         }
     }
 
