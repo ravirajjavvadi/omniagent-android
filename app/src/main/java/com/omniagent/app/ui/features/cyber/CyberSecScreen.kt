@@ -42,9 +42,11 @@ fun CyberSecScreen(
     
     // Sensor Guardian state
     var sensorHeatmap by remember { mutableStateOf<Map<Int, List<SensorAccessInfo>>>(emptyMap()) }
+    var sensorGuardianActive by remember { mutableStateOf(true) }
     
     // Permission Warden state
     var appDNAReport by remember { mutableStateOf<AppDNAReport?>(null) }
+    var permissionWardenActive by remember { mutableStateOf(true) }
 
     // Ransomware Shield state
     var ransomwareShieldActive by remember { mutableStateOf(false) }
@@ -135,7 +137,11 @@ fun CyberSecScreen(
                             GuardianOverlayManager.stopRansomwareShield()
                         }
                     },
-                    ransomwareShieldActive = ransomwareShieldActive
+                    ransomwareShieldActive = ransomwareShieldActive,
+                    onSensorGuardianToggle = { sensorGuardianActive = !sensorGuardianActive },
+                    sensorGuardianActive = sensorGuardianActive,
+                    onPermissionWardenToggle = { permissionWardenActive = !permissionWardenActive },
+                    permissionWardenActive = permissionWardenActive
                 )
             }
 
@@ -147,20 +153,24 @@ fun CyberSecScreen(
                 BeastModeVitalsCards(pulse = beastModePulse)
             }
 
-            item {
-                SectionHeader(title = "SENSOR GUARDIAN (24H)", icon = Icons.Default.Sensors)
+            if (sensorGuardianActive) {
+                item {
+                    SectionHeader(title = "SENSOR GUARDIAN (24H)", icon = Icons.Default.Sensors)
+                }
+
+                item {
+                    SensorGuardianHeatmap(heatmap = sensorHeatmap)
+                }
             }
 
-            item {
-                SensorGuardianHeatmap(heatmap = sensorHeatmap)
-            }
+            if (permissionWardenActive) {
+                item {
+                    SectionHeader(title = "PERMISSION Warden", icon = Icons.Default.AdminPanelSettings)
+                }
 
-            item {
-                SectionHeader(title = "PERMISSION WARDEN", icon = Icons.Default.AdminPanelSettings)
-            }
-
-            item {
-                PermissionWardenResults(report = appDNAReport)
+                item {
+                    PermissionWardenResults(report = appDNAReport)
+                }
             }
 
             item {
@@ -321,7 +331,11 @@ private fun SectionHeader(title: String, icon: ImageVector) {
 private fun GuardianControlsGrid(
     onNeuralShieldToggle: () -> Unit,
     onRansomwareShieldToggle: () -> Unit,
-    ransomwareShieldActive: Boolean
+    ransomwareShieldActive: Boolean,
+    onSensorGuardianToggle: () -> Unit,
+    sensorGuardianActive: Boolean,
+    onPermissionWardenToggle: () -> Unit,
+    permissionWardenActive: Boolean
 ) {
     val context = LocalContext.current
     
@@ -358,8 +372,8 @@ private fun GuardianControlsGrid(
                 title = "Sensor Guardian",
                 icon = "📡",
                 desc = "Hardware Monitor",
-                enabled = true,
-                onToggle = { },
+                enabled = sensorGuardianActive,
+                onToggle = onSensorGuardianToggle,
                 modifier = Modifier.weight(1f)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -367,8 +381,8 @@ private fun GuardianControlsGrid(
                 title = "Permission Warden",
                 icon = "🔐",
                 desc = "App DNA Scan",
-                enabled = true,
-                onToggle = { },
+                enabled = permissionWardenActive,
+                onToggle = onPermissionWardenToggle,
                 modifier = Modifier.weight(1f)
             )
         }
