@@ -85,9 +85,9 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 
 Developed with ❤️ by:
 - **Bhoompally Kalyan Reddy** (Lead Developer)
-- **Raviraj**
-- **Satvendra**
-- **Hrushikesh**
+- **Raviraj**(Lead Devloper)
+- **Satvendra**(Researcher)
+- **Hrushikesh**(Researcher)
 
 ---
 

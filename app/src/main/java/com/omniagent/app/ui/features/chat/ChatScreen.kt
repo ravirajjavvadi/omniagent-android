@@ -102,13 +102,13 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     val isOnlineModel = duckModels.any { it.first == selectedModel }
     val resolvedModelPath = remember(selectedModel, localModelPath) {
         if (isOnlineModel) {
-            null // No local path for online models
+            selectedModel // Pass the online model ID (e.g., 'gpt-4o-mini')
         } else if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
             selectedModel
         } else if (selectedModel.isNotEmpty()) {
             context.getExternalFilesDir(null)?.absolutePath + "/$selectedModel.gguf"
         } else {
-            localModelPath // Fallback to auto-detected path
+            localModelPath // Fallback to auto-detected local path
         }
     }
 

@@ -54,6 +54,19 @@ class MainActivity : ComponentActivity() {
                     val downloadManager = remember { ModelDownloadManager(applicationContext) }
                     val downloadState by downloadManager.downloadState.collectAsStateWithLifecycle()
 
+                    // Request Notification Permission for Android 13+
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    LaunchedEffect(Unit) {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                (context as? androidx.activity.ComponentActivity)?.requestPermissions(
+                                    arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                                    1001
+                                )
+                            }
+                        }
+                    }
+
                     // Determine initial tab on first splash finish
                     LaunchedEffect(showSplash) {
                         if (!showSplash && !downloadManager.isAnyModelDownloaded()) {

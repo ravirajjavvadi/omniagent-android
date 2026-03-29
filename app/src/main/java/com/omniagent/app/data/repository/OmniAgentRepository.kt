@@ -211,13 +211,16 @@ class OmniAgentRepository(
         modelPath: String?
     ): Flow<StreamingUpdate> = callbackFlow {
         val startTime = System.currentTimeMillis()
-        Log.d("OmniAgent", "Streaming Pipeline started for: $userInput with maxTokens: $maxTokens, modelPath: $modelPath")
+        val onlineModels = listOf("gpt-4o-mini", "claude-3-haiku", "llama-3.3-70b", "mixtral-8x7b")
+        val isOnline = modelPath == null || onlineModels.contains(modelPath)
+        
+        Log.d("OmniAgent", "Streaming Pipeline started for: $userInput with maxTokens: $maxTokens, modelPath: $modelPath (isOnline: $isOnline)")
 
-        // Auto-load model if path provided
-        if (modelPath != null && !llamaEngine.isModelLoaded()) {
+        // Only try to load if it's a local file path
+        if (modelPath != null && !isOnline && !llamaEngine.isModelLoaded()) {
             val loaded = withContext(Dispatchers.IO) { llamaEngine.loadModel(modelPath) }
             if (!loaded) {
-                trySend(StreamingUpdate(error = "Failed to load model at: $modelPath"))
+                trySend(StreamingUpdate(error = "Failed to load local model at: $modelPath. Ensure weights are downloaded."))
                 close()
                 return@callbackFlow
             }
@@ -239,7 +242,9 @@ class OmniAgentRepository(
         // Step 2: Route
         val moduleName = classification.module?.lowercase() ?: "general"
         
-        if (moduleName == "general" || moduleName == "coding" || moduleName == "startup") {
+        // Logic: Use LlamaEngine (local) ONLY if we have a loaded model and the module matches.
+        // Otherwise, route through Python (online if isOnline=true).
+        if (!isOnline && llamaEngine.isModelLoaded() && (moduleName == "general" || moduleName == "coding" || moduleName == "startup")) {
             // Favor LlamaEngine for core queries for "ChatGPT feel"
             val listener = object : com.omniagent.app.engine.LlamaEngine.StreamingListener {
                 override fun onTokenGenerated(token: String) {
@@ -277,15 +282,18 @@ class OmniAgentRepository(
                 }
             }
         } else {
-            // For specialized Python engines, we don't have native streaming yet, 
-            // so we return the full result as a "single token" update.
+            // For specialized Python engines OR Online models
+            val routedModule = if (isOnline) "duck" else moduleName
+            
             val engineResult = try {
-                runEngine(moduleName, sanitizedInput, history)
+                runEngine(routedModule, sanitizedInput, history)
             } catch (e: Exception) {
                 EngineResult(module_name = "Error", reasoning = listOf(e.message ?: "Unknown"))
             }
 
+            // Check both "summary" and "answer" for robustness
             val summary = engineResult.structured_analysis["summary"] as? String 
+                ?: engineResult.structured_analysis["answer"] as? String
                 ?: engineResult.reasoning.firstOrNull() 
                 ?: "Analysis complete."
 

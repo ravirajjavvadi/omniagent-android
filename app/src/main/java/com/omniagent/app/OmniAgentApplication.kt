@@ -27,6 +27,9 @@ class OmniAgentApplication : Application() {
 
         // Schedule Periodic Cyber Scan (Safety First)
         scheduleCyberScan()
+        
+        // Start Live Security Guardian Service
+        com.omniagent.app.service.OmniGuardianService.start(this)
     }
 
     private fun scheduleCyberScan() {
