@@ -2,6 +2,7 @@ package com.omniagent.app.core.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
+import androidx.room.ColumnInfo
 
 /**
  * Represents the classification result from the AI Kernel.
@@ -125,7 +126,7 @@ enum class ProcessingState {
  * Represents a group of related messages (a thread).
  */
 data class ChatSession(
-    val id: String,
-    val title: String,
-    val lastTimestamp: Long
+    @ColumnInfo(name = "id") val id: String = "",
+    @ColumnInfo(name = "title") val title: String = "",
+    @ColumnInfo(name = "lastTimestamp") val lastTimestamp: Long = 0L
 )
