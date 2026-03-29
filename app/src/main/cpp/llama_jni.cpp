@@ -175,14 +175,7 @@ Java_com_omniagent_app_engine_LlamaEngine_generateStreamingResponseJNI(
 
     llama_kv_cache_clear(g_ctx);
 
-    // SPEED OPTIMIZATION: Use a lean sampler chain
-    // Greedy (Temperature=0) is fastest & most deterministic for code/facts
-    // Use Temperature=0.3 for slight creativity while still being fast
-    llama_sampler_chain_params sparams = llama_sampler_chain_default_params();
-    llama_sampler * sampler = llama_sampler_chain_init(sparams);
-    llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.1f));   // Deterministic for 0.5B models
-    llama_sampler_chain_add(sampler, llama_sampler_init_min_p(0.05f, 1)); // Prune hallucinations
-    llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    llama_sampler * sampler = build_sampler_chain();
 
     const int64_t start_time = llama_time_us();
     const int32_t n_max_tokens = max_tokens_limit;

@@ -46,6 +46,7 @@ class OmniAgentViewModel(
     // Auto-lock inactivity timer (5 minutes)
     private val INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000L
     private var inactivityJob: kotlinx.coroutines.Job? = null
+    private var inferenceJob: kotlinx.coroutines.Job? = null
     
     // Persistent State Handle
     private val sharedPrefs: SharedPreferences = application.getSharedPreferences(
@@ -534,8 +535,9 @@ class OmniAgentViewModel(
 
         val historyString = formatChatHistoryForPipeline()
         val aiMsgId = java.util.UUID.randomUUID().toString()
-
-        viewModelScope.launch {
+        
+        inferenceJob?.cancel() // Cancel any existing inference
+        inferenceJob = viewModelScope.launch {
             _uiState.update { it.copy(isProcessing = true) }
             
             val initialAiMsg = ChatMessage(
@@ -629,10 +631,20 @@ class OmniAgentViewModel(
      */
     fun stopResponse() {
         Log.i(TAG, "User requested to stop response.")
-        // In a flow-based system, we'd cancel the job. 
-        // For simplicity, we trigger the repository's stop mechanism.
+        inferenceJob?.cancel()
+        inferenceJob = null
+        
+        // Signal the engine to stop native inference
         viewModelScope.launch {
-            _uiState.update { it.copy(isProcessing = false) }
+            try {
+                // We use a temporary LlamaEngine instance or the one from repo if accessible
+                // But specifically we need to call stopInferenceJNI. 
+                // Repository's flowing pipeline logic handles the awaitClose { stopInference() }
+                // but cancelling the job is the most reliable way to stop the Flow.
+                _uiState.update { it.copy(isProcessing = false) }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error stopping inference", e)
+            }
         }
     }
 
