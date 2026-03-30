@@ -69,15 +69,36 @@ object ResumePdfExporter {
 
         pdfDocument.finishPage(page)
 
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val fileName = "Beast_Resume_${System.currentTimeMillis()}.pdf"
-        val file = File(downloadsDir, fileName)
-
+        
         try {
-            pdfDocument.writeTo(FileOutputStream(file))
-            Log.i(TAG, "Resume exported successfully to ${file.absolutePath}")
-            android.widget.Toast.makeText(context, "Saved to Downloads: $fileName", android.widget.Toast.LENGTH_LONG).show()
-        } catch (e: IOException) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                }
+                
+                val resolver = context.contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outputStream ->
+                        pdfDocument.writeTo(outputStream)
+                    }
+                    Log.i(TAG, "Resume exported successfully via MediaStore: $fileName")
+                    android.widget.Toast.makeText(context, "Saved to Downloads: $fileName", android.widget.Toast.LENGTH_LONG).show()
+                } else {
+                    throw IOException("Failed to create MediaStore entry")
+                }
+            } else {
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val file = File(downloadsDir, fileName)
+                pdfDocument.writeTo(FileOutputStream(file))
+                Log.i(TAG, "Resume exported successfully to ${file.absolutePath}")
+                android.widget.Toast.makeText(context, "Saved to Downloads: $fileName", android.widget.Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
             Log.e(TAG, "Error writing PDF: ${e.message}")
             android.widget.Toast.makeText(context, "Export Failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
         } finally {
@@ -95,11 +116,28 @@ object ResumePdfExporter {
         currentY += 20f
         paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
         paint.textSize = 11f
+        paint.color = Color.BLACK
         
-        // Primitive text wrapping
-        val lines = content.split("\n")
-        for (line in lines) {
-            canvas.drawText(line, x, currentY, paint)
+        // Slightly better text wrapping
+        val maxWidth = 500f
+        val words = content.split(" ", "\n")
+        var currentLine = StringBuilder()
+        
+        for (word in words) {
+            val testLine = if (currentLine.isEmpty()) word else "${currentLine} $word"
+            val textWidth = paint.measureText(testLine)
+            
+            if (textWidth > maxWidth || word.contains("\n")) {
+                canvas.drawText(currentLine.toString(), x, currentY, paint)
+                currentY += 15f
+                currentLine = StringBuilder(word.replace("\n", ""))
+            } else {
+                currentLine = StringBuilder(testLine)
+            }
+        }
+        
+        if (currentLine.isNotEmpty()) {
+            canvas.drawText(currentLine.toString(), x, currentY, paint)
             currentY += 15f
         }
         

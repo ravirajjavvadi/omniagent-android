@@ -350,20 +350,30 @@ class ResumeEngine:
             ", ".join(resume_keywords[:3]), ", ".join(jd_keywords[:3])
         )
         
-        result = {
+        # Standardized Output Fields
+        final_report = {
             "module_name": "Resume Tailoring Engine",
-            "original_match_score": self._compute_ats_score({}, {}, [], {"match_percentage": 0}, {"count": 0}, {"has_bullet_points": True, "has_numbers": True, "has_dates": True, "excessive_whitespace": False}), # Simplified
-            "missing_critical_keywords": missing[:10],
-            "tailored_summary_suggestion": tailored_summary,
-            "improvement_steps": [
-                "Integrate missing keywords: {}".format(", ".join(missing[:5])),
-                "Update professional summary to highlight relevance to the job description",
-                "Ensure recent projects emphasize skills: {}".format(", ".join(jd_keywords[:3]))
+            "confidence_score": 1.0,
+            "reasoning": [
+                "Extracted {} keywords from job description".format(len(jd_keywords)),
+                "Found {} matching keywords in resume".format(len(resume_keywords)),
+                "Identified {} critical missing keywords".format(len(missing))
             ],
+            "structured_analysis": {
+                "original_match_score": self._compute_ats_score({}, {}, [], {"match_percentage": 0}, {"count": 0}, {"has_bullet_points": True, "has_numbers": True, "has_dates": True, "excessive_whitespace": False}), # Simplified
+                "missing_critical_keywords": missing[:10],
+                "tailored_summary_suggestion": tailored_summary,
+                "improvement_steps": [
+                    "Integrate missing keywords: {}".format(", ".join(missing[:5])),
+                    "Update professional summary to highlight relevance to the job description",
+                    "Ensure recent projects emphasize skills: {}".format(", ".join(jd_keywords[:3]))
+                ]
+            },
+            "risk_score": float(len(missing) * 10),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
         
-        return json.dumps(result, indent=2)
+        return json.dumps(final_report, indent=2)
 
 
 # === ENTRY POINT FOR CHAQUOPY ===

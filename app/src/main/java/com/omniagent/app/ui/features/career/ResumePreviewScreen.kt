@@ -29,7 +29,7 @@ fun ResumePreviewScreen(resumeData: ResumeData) {
     
     Column(
         modifier = Modifier
-            .fillMaxSize()
+            .fillMaxWidth()
             .background(OmniColors.Background)
     ) {
         Text(
@@ -44,9 +44,7 @@ fun ResumePreviewScreen(resumeData: ResumeData) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .verticalScroll(scrollState),
+                .clip(RoundedCornerShape(8.dp)),
             color = Color.White,
             tonalElevation = 4.dp
         ) {

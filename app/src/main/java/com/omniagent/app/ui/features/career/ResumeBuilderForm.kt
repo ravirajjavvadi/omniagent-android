@@ -84,7 +84,6 @@ fun ResumeBuilderForm(viewModel: OmniAgentViewModel, onBack: () -> Unit) {
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
         Spacer(modifier = Modifier.height(32.dp))
 
         // Navigation Buttons

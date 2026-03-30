@@ -435,13 +435,8 @@ class OmniAgentViewModel(
         _uiState.update { it.copy(isProcessing = true) }
         viewModelScope.launch {
             try {
-                val py = Python.getInstance()
-                val engine = py.getModule("resume_engine")
-                val resultJson = withContext(Dispatchers.IO) {
-                    engine.callAttr("tailor_resume", resume, jd).toString()
-                }
-                val engineResult = Gson().fromJson(resultJson, EngineResult::class.java)
-                _careerTailorResult.value = engineResult
+                val result = repository.tailorResume(resume, jd)
+                _careerTailorResult.value = result
                 _uiState.update { it.copy(isProcessing = false) }
             } catch (e: Exception) {
                 Log.e("OmniAgent", "Career tailoring failed", e)
@@ -691,6 +686,7 @@ class OmniAgentViewModel(
             try {
                 val result = repository.tailorResume(resumeText, jobDescription)
                 _tailoringResult.value = result
+                _careerTailorResult.value = result // Keep both in sync for UI stability
                 _uiState.update { it.copy(isProcessing = false, hasResult = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isProcessing = false, error = "Tailoring failed: ${e.message}") }
