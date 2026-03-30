@@ -132,31 +132,32 @@ object SensorGuardianManager {
         opStr: String
     ): SensorAccessResult {
         try {
+            val uid = try {
+                context.packageManager.getApplicationInfo(packageName, 0).uid
+            } catch (e: PackageManager.NameNotFoundException) {
+                return SensorAccessResult(false, 0, 0)
+            }
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                // Use the new API for Android 10+
-                val uid = try {
-                    context.packageManager.getApplicationInfo(packageName, 0).uid
-                } catch (e: PackageManager.NameNotFoundException) {
-                    return SensorAccessResult(false, 0, 0)
-                }
-
-                val opNote = appOps.unsafeCheckOpRaw(
-                    opStr,
-                    uid,
-                    packageName
-                )
-
-                // If we can observe the op, we consider it potentially accessible
-                // For accurate timing, we'd need a more complex implementation
-                return if (opNote == AppOpsManager.MODE_ALLOWED) {
-                    SensorAccessResult(true, System.currentTimeMillis(), 1)
+                // On Android 10+, we use unsafeCheckOpRaw for current state
+                val mode = appOps.unsafeCheckOpRaw(opStr, uid, packageName)
+                
+                // For historical data, standard SDK access is limited. 
+                // We'll use the last used time from UsageStats as a proxy if AppOps history is inaccessible.
+                val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+                val calendar = Calendar.getInstance()
+                val stats = usageStatsManager.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, calendar.timeInMillis - 86400000, calendar.timeInMillis)
+                val appUsage = stats.find { it.packageName == packageName }
+                
+                return if (mode == AppOpsManager.MODE_ALLOWED || (appUsage?.lastTimeUsed ?: 0) > 0) {
+                    SensorAccessResult(true, appUsage?.lastTimeUsed ?: System.currentTimeMillis(), 1)
                 } else {
                     SensorAccessResult(false, 0, 0)
                 }
             } else {
                 // Legacy approach for older Android versions
                 @Suppress("DEPRECATION")
-                val mode = appOps.checkOp(opStr, Process.myUid(), packageName)
+                val mode = appOps.checkOp(opStr, uid, packageName)
                 return if (mode == AppOpsManager.MODE_ALLOWED) {
                     SensorAccessResult(true, System.currentTimeMillis(), 1)
                 } else {

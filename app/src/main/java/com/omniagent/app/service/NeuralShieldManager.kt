@@ -8,6 +8,8 @@ import android.os.Build
 import android.provider.Settings
 import android.text.TextUtils
 import android.util.Log
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Helper object for managing OmniAccessibilityLinkScanner (Neural Vision) accessibility service.
@@ -132,6 +134,17 @@ object NeuralShieldManager {
     /**
      * Gets the current service info including display name and status.
      */
+    private var _lastScannedUrl = MutableStateFlow<String?>(null)
+    val lastScannedUrl = _lastScannedUrl.asStateFlow()
+
+    private var _lastScannedApp = MutableStateFlow<String?>(null)
+    val lastScannedApp = _lastScannedApp.asStateFlow()
+
+    fun reportScan(url: String, packageName: String) {
+        _lastScannedUrl.value = url
+        _lastScannedApp.value = packageName
+    }
+
     fun getServiceInfo(context: Context): NeuralShieldStatus {
         val isEnabled = isNeuralShieldEnabled(context)
         val serviceInfo = try {

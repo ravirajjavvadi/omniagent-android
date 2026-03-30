@@ -1,7 +1,9 @@
 package com.omniagent.app.ui.features.cyber
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -23,7 +25,15 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.content.pm.PackageManager
+import android.graphics.drawable.BitmapDrawable
+import androidx.compose.ui.graphics.asImageBitmap
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.app.ActivityManager
 import com.omniagent.app.service.*
+import com.omniagent.app.service.FloatingAIService
 import com.omniagent.app.ui.theme.OmniColors
 import com.omniagent.app.viewmodel.OmniAgentViewModel
 
@@ -36,36 +46,49 @@ fun CyberSecScreen(
     val suspiciousApps by viewModel.suspiciousApps.collectAsState()
 
     val context = LocalContext.current
+    
+    val sensorGuardianActive by viewModel.isSensorGuardianActive.collectAsState()
+    val permissionWardenActive by viewModel.isPermissionWardenActive.collectAsState()
+    val neuralShieldActive by viewModel.isNeuralShieldActive.collectAsState()
+
+    var floatingOrbActive by remember { mutableStateOf(FloatingAIService.isRunning) }
+
+    val topPowerConsumers by viewModel.topPowerConsumers.collectAsState()
+    val scanHistory by viewModel.scanHistory.collectAsState()
+    val lastScannedUrl by viewModel.lastScannedUrl.collectAsState()
+    val lastScannedApp by viewModel.lastScannedApp.collectAsState()
 
     // Beast Mode Pulse state
     var beastModePulse by remember { mutableStateOf<BeastModePulse?>(null) }
     
-    // Sensor Guardian state
+    // Sensor Guardian heatmap state
     var sensorHeatmap by remember { mutableStateOf<Map<Int, List<SensorAccessInfo>>>(emptyMap()) }
-    var sensorGuardianActive by remember { mutableStateOf(true) }
     
-    // Permission Warden state
+    // Permission Warden report state
     var appDNAReport by remember { mutableStateOf<AppDNAReport?>(null) }
-    var permissionWardenActive by remember { mutableStateOf(true) }
 
-    // Ransomware Shield state
+    // Ransomware Shield state (Local UI state for now, as it's overlay-based)
     var ransomwareShieldActive by remember { mutableStateOf(false) }
 
     // Show guided overlay state
     var showGuidedOverlay by remember { mutableStateOf(false) }
 
-    // Refresh data on compose
+    // Refresh data on compose and periodically
     LaunchedEffect(Unit) {
-        viewModel.refreshCyberSecVitals()
-        
-        // Get Beast Mode Pulse
-        beastModePulse = BeastModePulseManager.getPulseData(context)
-        
-        // Get Sensor Heatmap
-        sensorHeatmap = SensorGuardianManager.getSensorAccessHeatmap(context)
-        
-        // Get App DNA Analysis
-        appDNAReport = PermissionWardenManager.performAppDNAAnalysis(context)
+        while (true) {
+            viewModel.refreshCyberSecVitals()
+            
+            // Get Beast Mode Pulse
+            beastModePulse = BeastModePulseManager.getPulseData(context)
+            
+            // Get Sensor Heatmap
+            sensorHeatmap = SensorGuardianManager.getSensorAccessHeatmap(context)
+            
+            // Get App DNA Analysis
+            appDNAReport = PermissionWardenManager.performAppDNAAnalysis(context)
+            
+            kotlinx.coroutines.delay(10_000) // UI local refresh every 10 seconds
+        }
     }
 
     Box(
@@ -119,29 +142,45 @@ fun CyberSecScreen(
                     onNeuralShieldToggle = {
                         val status = NeuralShieldManager.getServiceInfo(context)
                         if (status.isEnabled) {
-                            // Already enabled - just open settings
                             NeuralShieldManager.openAccessibilitySettings(context)
                         } else if (status.requiresGuidedOverlay) {
-                            // Show guided overlay for older Android
                             showGuidedOverlay = true
                         } else {
-                            // Direct navigation for Android 12+
                             NeuralShieldManager.openAccessibilitySettings(context)
                         }
                     },
                     onRansomwareShieldToggle = {
                         ransomwareShieldActive = !ransomwareShieldActive
-                        if (ransomwareShieldActive) {
-                            GuardianOverlayManager.startRansomwareShield(context)
-                        } else {
-                            GuardianOverlayManager.stopRansomwareShield()
-                        }
                     },
                     ransomwareShieldActive = ransomwareShieldActive,
-                    onSensorGuardianToggle = { sensorGuardianActive = !sensorGuardianActive },
+                    onSensorGuardianToggle = { 
+                        viewModel.toggleSensorGuardian(!sensorGuardianActive)
+                    },
                     sensorGuardianActive = sensorGuardianActive,
-                    onPermissionWardenToggle = { permissionWardenActive = !permissionWardenActive },
-                    permissionWardenActive = permissionWardenActive
+                    onPermissionWardenToggle = { 
+                        viewModel.togglePermissionWarden(!permissionWardenActive)
+                    },
+                    permissionWardenActive = permissionWardenActive,
+                    neuralShieldEnabled = neuralShieldActive,
+                    floatingOrbActive = floatingOrbActive,
+                    onFloatingOrbToggle = {
+                        if (!floatingOrbActive) {
+                            // Check if we have overlay permission
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M && 
+                                !Settings.canDrawOverlays(context)) {
+                                val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    Uri.parse("package:${context.packageName}"))
+                                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                context.startActivity(intent)
+                            } else {
+                                context.startForegroundService(Intent(context, FloatingAIService::class.java))
+                                floatingOrbActive = true
+                            }
+                        } else {
+                            context.stopService(Intent(context, FloatingAIService::class.java))
+                            floatingOrbActive = false
+                        }
+                    }
                 )
             }
 
@@ -174,7 +213,34 @@ fun CyberSecScreen(
             }
 
             item {
+                SectionHeader(title = "HIGH POWER CONSUMPTION", icon = Icons.Default.BatteryChargingFull)
+            }
+
+            item {
+                TopPowerSection(apps = topPowerConsumers)
+            }
+
+            item {
+                SectionHeader(title = "PROTECTION HISTORY (24H)", icon = Icons.Default.History)
+            }
+
+            item {
+                ProtectionHistorySection(
+                    history = scanHistory,
+                    onClear = { viewModel.clearScanHistory() }
+                )
+            }
+
+            item {
                 SectionHeader(title = "THREAT MONITOR (LIVE)", icon = Icons.Default.Radar)
+            }
+
+            item {
+                NeuralVisionStatus(
+                    isActive = neuralShieldActive,
+                    lastUrl = lastScannedUrl,
+                    lastApp = lastScannedApp
+                )
             }
 
             item {
@@ -335,17 +401,11 @@ private fun GuardianControlsGrid(
     onSensorGuardianToggle: () -> Unit,
     sensorGuardianActive: Boolean,
     onPermissionWardenToggle: () -> Unit,
-    permissionWardenActive: Boolean
+    permissionWardenActive: Boolean,
+    neuralShieldEnabled: Boolean,
+    floatingOrbActive: Boolean,
+    onFloatingOrbToggle: () -> Unit
 ) {
-    val context = LocalContext.current
-    
-    // Check Neural Shield status using robust method
-    var neuralShieldEnabled by remember { mutableStateOf(false) }
-    
-    LaunchedEffect(Unit) {
-        neuralShieldEnabled = NeuralShieldManager.isNeuralShieldEnabled(context)
-    }
-
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
             PermissionCard(
@@ -386,6 +446,16 @@ private fun GuardianControlsGrid(
                 modifier = Modifier.weight(1f)
             )
         }
+        Spacer(modifier = Modifier.height(8.dp))
+        // Floating AI Orb — spans the full row
+        PermissionCard(
+            title = "Floating AI Orb",
+            icon = "🔮",
+            desc = "Dynamic Island Chat",
+            enabled = floatingOrbActive,
+            onToggle = onFloatingOrbToggle,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -691,13 +761,116 @@ private fun ThreatMonitor(apps: List<AppHealthStats>) {
                     style = MaterialTheme.typography.bodySmall,
                     color = OmniColors.TextTertiary
                 )
+        } else {
+            apps.take(5).forEach { app ->
+                val color = if (app.isSuspicious) OmniColors.Danger else OmniColors.Warning
+                val icon = if (app.isSuspicious) Icons.Default.Warning else Icons.Default.Info
+                val text = "${app.appName} (Drain: ${app.batteryDrain}%)"
+                val timeSub = "Active Foreground: ${app.foregroundTimeMs / 1000}s"
+                
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(text = text, style = MaterialTheme.typography.bodySmall, color = OmniColors.TextSecondary)
+                        Text(text = timeSub, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary, fontSize = 9.sp)
+                    }
+                }
+            }
+        }
+        }
+    }
+}
+
+@Composable
+private fun TopPowerSection(apps: List<AppHealthStats>) {
+    val context = LocalContext.current
+    LazyRow(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(apps) { app ->
+            AppActionCard(
+                packageName = app.packageName,
+                label = app.appName,
+                subText = "${app.batteryDrain} mAh",
+                onClick = { openAppInfo(context, app.packageName) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun AppActionCard(
+    packageName: String,
+    label: String,
+    subText: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .width(120.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(OmniColors.SurfaceElevated)
+            .clickable { onClick() }
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            AppIcon(packageName = packageName, size = 48.dp)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = OmniColors.TextPrimary,
+                maxLines = 1,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = subText,
+                style = MaterialTheme.typography.labelSmall,
+                color = OmniColors.TextTertiary
+            )
+        }
+    }
+}
+
+@Composable
+private fun ProtectionHistorySection(
+    history: List<ScanEvent>,
+    onClear: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(OmniColors.Surface)
+            .padding(16.dp)
+    ) {
+        Column {
+            if (history.isEmpty()) {
+                Text(
+                    "No recent security events.",
+                    color = OmniColors.TextTertiary,
+                    style = MaterialTheme.typography.bodySmall
+                )
             } else {
-                apps.take(5).forEach { app ->
-                    val color = if (app.isSuspicious) OmniColors.Danger else OmniColors.Warning
-                    val icon = if (app.isSuspicious) Icons.Default.Warning else Icons.Default.Info
-                    val text = "${app.appName} (Drain: ${app.estimatedBatteryDrain.toInt()}%)"
-                    val timeSub = "Active Foreground: ${app.foregroundTimeMs / 1000}s"
-                    LogItem(text, timeSub, icon, color)
+                history.take(10).forEach { event ->
+                    HistoryItem(event)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                Button(
+                    onClick = onClear,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    contentPadding = PaddingValues(0.dp),
+                    modifier = Modifier.align(Alignment.End)
+                ) {
+                    Text("CLEAR ALL HISTORY", color = OmniColors.Danger, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -705,13 +878,133 @@ private fun ThreatMonitor(apps: List<AppHealthStats>) {
 }
 
 @Composable
-private fun LogItem(text: String, time: String, icon: ImageVector, color: Color) {
+private fun HistoryItem(event: ScanEvent) {
+    val color = when (event.riskLevel) {
+        RiskLevel.CRITICAL, RiskLevel.HIGH -> OmniColors.Danger
+        RiskLevel.MEDIUM -> OmniColors.Warning
+        else -> OmniColors.Primary
+    }
+    
+    val time = remember(event.timestamp) {
+        val sdf = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+        sdf.format(java.util.Date(event.timestamp))
+    }
+
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(16.dp))
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(color)
+        )
         Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(text = text, style = MaterialTheme.typography.bodySmall, color = OmniColors.TextSecondary)
-            Text(text = time, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary, fontSize = 9.sp)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(event.title, style = MaterialTheme.typography.labelMedium, color = OmniColors.TextPrimary)
+            Text(event.description, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary, maxLines = 1)
         }
+        Text(time, style = MaterialTheme.typography.labelSmall, color = OmniColors.TextTertiary)
+    }
+}
+
+@Composable
+private fun NeuralVisionStatus(
+    isActive: Boolean,
+    lastUrl: String?,
+    lastApp: String?
+) {
+    val infiniteTransition = rememberInfiniteTransition()
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.4f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        )
+    )
+
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(OmniColors.Surface)
+            .padding(16.dp)
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(if (isActive) OmniColors.Primary.copy(alpha = pulseAlpha) else OmniColors.TextTertiary)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = if (isActive) "NEURAL SHIELD SCANNING..." else "NEURAL SHIELD INACTIVE",
+                    color = if (isActive) OmniColors.Primary else OmniColors.TextTertiary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 12.sp
+                )
+            }
+            
+            if (isActive && lastUrl != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(OmniColors.Background.copy(alpha = 0.5f))
+                        .padding(12.dp)
+                ) {
+                    Text("LAST SCANNED", fontSize = 9.sp, color = OmniColors.TextTertiary)
+                    Text(lastUrl, fontSize = 11.sp, color = OmniColors.TextPrimary, maxLines = 1)
+                    Text("App: $lastApp", fontSize = 9.sp, color = OmniColors.TextTertiary)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppIcon(packageName: String, size: androidx.compose.ui.unit.Dp) {
+    val context = LocalContext.current
+    val icon = remember(packageName) {
+        try {
+            val drawable = context.packageManager.getApplicationIcon(packageName)
+            if (drawable is BitmapDrawable) {
+                drawable.bitmap.asImageBitmap()
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    if (icon != null) {
+        androidx.compose.foundation.Image(
+            bitmap = icon,
+            contentDescription = null,
+            modifier = Modifier.size(size)
+        )
+    } else {
+        Icon(
+            Icons.Default.Android,
+            contentDescription = null,
+            tint = OmniColors.TextTertiary,
+            modifier = Modifier.size(size)
+        )
+    }
+}
+
+private fun openAppInfo(context: android.content.Context, packageName: String) {
+    try {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = android.net.Uri.fromParts("package", packageName, null)
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        Log.e("OmniAgent", "Failed to open app info", e)
     }
 }

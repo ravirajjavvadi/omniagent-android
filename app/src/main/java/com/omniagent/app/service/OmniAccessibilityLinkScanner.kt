@@ -12,22 +12,32 @@ class OmniAccessibilityLinkScanner : AccessibilityService() {
         const val TAG = "OmniNeuralVision"
     }
 
+    private lateinit var historyManager: ScanHistoryManager
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         Log.d(TAG, "Neural Vision (Accessibility Service) Connected!")
-        // Configuration is handled via res/xml/accessibility_service_config.xml
-        // We listen to text changes and window state changes to capture URLs as they appear.
+        historyManager = ScanHistoryManager(this)
+        
+        historyManager.addEvent(ScanEvent(
+            id = System.currentTimeMillis().toString(),
+            type = EventType.APP_SCAN,
+            title = "Neural Shield Active",
+            description = "Security monitoring started.",
+            timestamp = System.currentTimeMillis(),
+            riskLevel = RiskLevel.LOW
+        ))
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        // We only care about events where text is displayed or a window opens
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
             event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
             
+            val packageName = event.packageName?.toString() ?: "UnknownApp"
             val rootNode = rootInActiveWindow ?: return
-            scanNodesForUrls(rootNode, event.packageName?.toString() ?: "UnknownApp")
+            scanNodesForUrls(rootNode, packageName)
         }
     }
 
@@ -40,8 +50,19 @@ class OmniAccessibilityLinkScanner : AccessibilityService() {
                 val url = matcher.group()
                 Log.w(TAG, "🚨 SUSPICIOUS LINK DETECTED in $packageName 🚨 -> $url")
                 
-                // TODO: Send to AI Kernel (Llama + Python) for actual threat analysis.
-                // For now, if we see a URL, we will trigger the Sentinel Overlay as a test.
+                // Report live scan
+                NeuralShieldManager.reportScan(url, packageName)
+                
+                // Add to history
+                historyManager.addEvent(ScanEvent(
+                    id = System.currentTimeMillis().toString(),
+                    type = EventType.URL_SCAN,
+                    title = "Link Scanned",
+                    description = "Detected $url in $packageName",
+                    timestamp = System.currentTimeMillis(),
+                    packageName = packageName,
+                    riskLevel = RiskLevel.MEDIUM
+                ))
                 
                 GuardianOverlayManager.showThreatAlert(
                     context = this,
@@ -51,8 +72,6 @@ class OmniAccessibilityLinkScanner : AccessibilityService() {
                     reason = "Unverified external link detected on screen."
                 )
                 
-                // Once we find a URL and show an alert in this specific chunk of text, 
-                // we break to avoid spamming the overlay for the exact same message.
                 break 
             }
         }

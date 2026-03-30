@@ -29,6 +29,8 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.content.Intent
+import com.omniagent.app.service.*
+import java.util.Calendar
 
 /**
  * Main ViewModel — manages all UI state and orchestrates the analysis pipeline.
@@ -114,6 +116,27 @@ class OmniAgentViewModel(
     private val _suspiciousApps = MutableStateFlow<List<AppHealthStats>>(emptyList())
     val suspiciousApps: StateFlow<List<AppHealthStats>> = _suspiciousApps.asStateFlow()
 
+    private val _topPowerConsumers = MutableStateFlow<List<AppHealthStats>>(emptyList())
+    val topPowerConsumers: StateFlow<List<AppHealthStats>> = _topPowerConsumers.asStateFlow()
+
+    private val scanHistoryManager = ScanHistoryManager(application)
+    private val notificationManager = SecurityNotificationManager(application)
+
+    private val _scanHistory = MutableStateFlow<List<ScanEvent>>(emptyList())
+    val scanHistory: StateFlow<List<ScanEvent>> = _scanHistory.asStateFlow()
+
+    val lastScannedUrl = NeuralShieldManager.lastScannedUrl
+    val lastScannedApp = NeuralShieldManager.lastScannedApp
+
+    private val _isSensorGuardianActive = MutableStateFlow(sharedPrefs.getBoolean("sensor_guardian_active", true))
+    val isSensorGuardianActive: StateFlow<Boolean> = _isSensorGuardianActive.asStateFlow()
+
+    private val _isPermissionWardenActive = MutableStateFlow(sharedPrefs.getBoolean("permission_warden_active", true))
+    val isPermissionWardenActive: StateFlow<Boolean> = _isPermissionWardenActive.asStateFlow()
+
+    private val _isNeuralShieldActive = MutableStateFlow(false)
+    val isNeuralShieldActive: StateFlow<Boolean> = _isNeuralShieldActive.asStateFlow()
+
     private val _isRecordingVoice = MutableStateFlow(false)
     val isRecordingVoice: StateFlow<Boolean> = _isRecordingVoice.asStateFlow()
 
@@ -126,6 +149,16 @@ class OmniAgentViewModel(
         restorePendingAnalysisState()
         refreshCyberSecVitals()
         initSpeechRecognizer()
+        startCyberSecMonitoring()
+    }
+
+    private fun startCyberSecMonitoring() {
+        viewModelScope.launch {
+            while (true) {
+                refreshCyberSecVitals()
+                kotlinx.coroutines.delay(30_000) // Refresh every 30 seconds
+            }
+        }
     }
 
     private fun initSpeechRecognizer() {
@@ -219,13 +252,39 @@ class OmniAgentViewModel(
         viewModelScope.launch {
             try {
                 _deviceVitals.value = deviceHealthManager.getVitals()
-                // Usage stats queries should be on IO to prevent jank
                 val apps = withContext(Dispatchers.IO) { deviceHealthManager.scanAppActivity() }
                 _suspiciousApps.value = apps
+                
+                val topApps = withContext(Dispatchers.IO) { deviceHealthManager.getTopResourceUsage(10) }
+                _topPowerConsumers.value = topApps
+
+                _scanHistory.value = scanHistoryManager.getHistory()
+                
+                _isNeuralShieldActive.value = NeuralShieldManager.isNeuralShieldEnabled(getApplication())
+                
+                // Monitor for critical threats in background and notify
+                apps.find { it.isSuspicious && it.riskScore > 70 }?.let {
+                    notificationManager.showSecurityAlert("High Risk App Detected", "${it.appName} is showing suspicious background behavior.")
+                }
             } catch (e: Exception) {
                 Log.e("OmniAgent", "Failed to refresh CyberSec vitals", e)
             }
         }
+    }
+
+    fun clearScanHistory() {
+        scanHistoryManager.clearHistory()
+        _scanHistory.value = emptyList()
+    }
+
+    fun toggleSensorGuardian(active: Boolean) {
+        _isSensorGuardianActive.value = active
+        sharedPrefs.edit().putBoolean("sensor_guardian_active", active).apply()
+    }
+
+    fun togglePermissionWarden(active: Boolean) {
+        _isPermissionWardenActive.value = active
+        sharedPrefs.edit().putBoolean("permission_warden_active", active).apply()
     }
 
     // === ACTIONS ===

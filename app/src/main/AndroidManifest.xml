@@ -82,6 +82,12 @@
             </intent-filter>
         </service>
 
+        <!-- Floating AI Orb Service -->
+        <service
+            android:name=".service.FloatingAIService"
+            android:foregroundServiceType="dataSync"
+            android:exported="false" />
+
         <receiver
             android:name=".widget.OmniAgentWidgetProvider"
             android:exported="true">

@@ -119,15 +119,7 @@ object PermissionWardenManager {
         val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
 
         try {
-            // Get running services
-            val runningServices = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                activityManager.getRunningServices(Integer.MAX_VALUE)
-            } else {
-                @Suppress("DEPRECATION")
-                activityManager.getRunningServices(Integer.MAX_VALUE)
-            }
-
-            // Get running processes
+            // Get running processes (more reliable than getRunningServices on modern Android)
             val runningProcesses = activityManager.runningAppProcesses ?: emptyList()
 
             val packages = pm.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -137,33 +129,38 @@ object PermissionWardenManager {
                 val isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
                 if (isSystemApp) continue
 
-                // Check if app has running services
-                val services = runningServices?.filter { it.service.packageName == appInfo.packageName }
-                    ?: emptyList()
-
-                // Check if app has running processes
-                val processes = runningProcesses?.filter { 
+                // Check if app has active processes
+                val processes = runningProcesses.filter { 
                     it.pkgList?.contains(appInfo.packageName) == true 
-                } ?: emptyList()
+                }
 
-                if (services.isNotEmpty() || processes.isNotEmpty()) {
+                if (processes.isNotEmpty()) {
                     // Get permissions
                     val permissions = getRequestedPermissions(pm, appInfo.packageName)
                     val highRiskPerms = permissions.filter { it in HIGH_RISK_PERMISSIONS }
 
-                    val appName = pm.getApplicationLabel(appInfo).toString()
-                    sleeperApps.add(
-                        SleeperServiceInfo(
-                            packageName = appInfo.packageName,
-                            appName = appName,
-                            runningServices = services.map { it.service.className },
-                            processImportance = processes.firstOrNull()?.importance ?: 0,
-                            highRiskPermissions = highRiskPerms,
-                            isBackgroundProcess = processes.any { 
-                                it.importance > ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND 
-                            }
+                    // Heuristic: App is a "Sleeper" if it has a background process AND high-risk permissions,
+                    // or if it declares persistent listeners like Accessibility/Notification.
+                    val hasPersistentListeners = highRiskPerms.contains(android.Manifest.permission.BIND_ACCESSIBILITY_SERVICE) ||
+                                                 highRiskPerms.contains(android.Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE)
+
+                    val isBackgroundOnly = processes.all { 
+                        it.importance >= ActivityManager.RunningAppProcessInfo.IMPORTANCE_SERVICE 
+                    }
+
+                    if (isBackgroundOnly || hasPersistentListeners) {
+                        val appName = pm.getApplicationLabel(appInfo).toString()
+                        sleeperApps.add(
+                            SleeperServiceInfo(
+                                packageName = appInfo.packageName,
+                                appName = appName,
+                                runningServices = emptyList(), // Accurate service discovery is limited, so we focus on process presence
+                                processImportance = processes.firstOrNull()?.importance ?: 0,
+                                highRiskPermissions = highRiskPerms,
+                                isBackgroundProcess = isBackgroundOnly
+                            )
                         )
-                    )
+                    }
                 }
             }
         } catch (e: Exception) {

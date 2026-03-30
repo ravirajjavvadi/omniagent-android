@@ -85,7 +85,7 @@ class OmniGuardianService : Service() {
                     }
 
                     // Correlate battery drain
-                    val highDrain = healthManager.scanAppActivity().filter { it.estimatedBatteryDrain > 50f }
+                    val highDrain = healthManager.scanAppActivity().filter { it.batteryDrain > 50 }
                     if (highDrain.isNotEmpty()) {
                         Log.w(TAG, "Guardian ALERT: High battery drain detected from ${highDrain.size} apps.")
                     }
