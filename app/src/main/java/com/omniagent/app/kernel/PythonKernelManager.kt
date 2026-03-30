@@ -55,7 +55,6 @@ class PythonKernelManager {
                 "resume" -> python.getModule("resume_engine").callAttr("analyze_resume", sanitizedInput, history).toString()
                 "startup" -> python.getModule("startup_engine").callAttr("analyze_startup", sanitizedInput, history).toString()
                 "general" -> python.getModule("general_engine").callAttr("analyze_general", sanitizedInput, history).toString()
-                "duck" -> python.getModule("duck_engine").callAttr("analyze_duck", sanitizedInput, "gpt-4o-mini", history).toString()
                 else -> "{\"error\": \"Routing failed: Unknown module '$moduleName'\"}"
             }
         } catch (e: Exception) {

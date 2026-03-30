@@ -39,6 +39,8 @@ class OmniAgentViewModel(
     application: Application
 ) : AndroidViewModel(application) {
 
+    private val downloadManager = com.omniagent.app.engine.ModelDownloadManager(application)
+
     companion object {
         private const val TAG = "OmniAgent"
     }
@@ -114,6 +116,9 @@ class OmniAgentViewModel(
 
     private val _isRecordingVoice = MutableStateFlow(false)
     val isRecordingVoice: StateFlow<Boolean> = _isRecordingVoice.asStateFlow()
+
+    private val _selectedModelId = MutableStateFlow(sharedPrefs.getString("selected_model_id", "qwen2.5_0_5b") ?: "qwen2.5_0_5b")
+    val selectedModelId: StateFlow<String> = _selectedModelId.asStateFlow()
 
     private var speechRecognizer: SpeechRecognizer? = null
 
@@ -304,7 +309,23 @@ class OmniAgentViewModel(
         _chatInput.value = input
     }
 
+    fun selectModel(modelId: String) {
+        _selectedModelId.value = modelId
+        sharedPrefs.edit().putString("selected_model_id", modelId).apply()
+        
+        // If the model is not downloaded, redirect to setup
+        if (!downloadManager.isModelFullyDownloaded(modelId)) {
+            switchTab(DashboardTab.MODEL_SELECTION)
+        }
+    }
+
     fun sendMessage() {
+        // Enforce model download before sending
+        if (!downloadManager.isAnyModelDownloaded()) {
+            switchTab(DashboardTab.MODEL_SELECTION)
+            return
+        }
+
         val input = _chatInput.value.trim()
         if (input.isEmpty()) return
 

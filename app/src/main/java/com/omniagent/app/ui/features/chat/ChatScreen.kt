@@ -72,8 +72,8 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     // No LaunchedEffect needed — the reversed list naturally shows newest messages.
     // This is the permanent fix that prevents any jumping behavior.
     
-    // Model selection state
-    var selectedModel by remember { mutableStateOf(localModelPath ?: "") }
+    // Model selection state from ViewModel
+    val selectedModel by viewModel.selectedModelId.collectAsState()
     var showModelSelector by remember { mutableStateOf(false) }
     
     // Response length state
@@ -83,27 +83,11 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
     // Regenerate state
     var lastUserMessage by remember { mutableStateOf("") }
 
-    // Model Categories
-    val duckModels = listOf(
-        "gpt-4o-mini" to "GPT-4o mini (Free)",
-        "claude-3-haiku" to "Claude 3 Haiku (Free)",
-        "llama-3.3-70b" to "Llama 3.3 70B (Free)",
-        "mixtral-8x7b" to "Mixtral 8x7B (Free)"
-    )
-    val nativeModels = listOf(
-        "qwen2.5_0_5b" to "Qwen 0.5B (Fast)",
-        "qwen2.5_1_5b" to "Qwen 1.5B (Balanced)", 
-        "gemma_2_2b" to "Gemma 2.2B (Advanced)"
-    )
+    val modelOptions = com.omniagent.app.engine.ModelDownloadManager(context).availableModels.map { it.id to it.name }
 
-    val modelOptions = duckModels + nativeModels
-
-    // Resolve the internal key or external path to a valid engine path
-    val isOnlineModel = duckModels.any { it.first == selectedModel }
+    // Logic for engine path
     val resolvedModelPath = remember(selectedModel, localModelPath) {
-        if (isOnlineModel) {
-            selectedModel // Pass the online model ID (e.g., 'gpt-4o-mini')
-        } else if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
+        if (selectedModel.startsWith("/") || selectedModel.contains(":\\")) {
             selectedModel
         } else if (selectedModel.isNotEmpty()) {
             context.getExternalFilesDir(null)?.absolutePath + "/$selectedModel.gguf"
@@ -188,21 +172,11 @@ fun ChatScreen(viewModel: OmniAgentViewModel, localModelPath: String? = null) {
             text = {
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
                     item {
-                        Text("Online (Duck.ai - Free)", style = MaterialTheme.typography.labelLarge, color = Color(0xFF10B981), modifier = Modifier.padding(8.dp))
+                        Text("Native Models (Downloaded Only)", style = MaterialTheme.typography.labelLarge, color = OmniColors.Accent, modifier = Modifier.padding(8.dp))
                     }
-                    items(duckModels) { (id, name) ->
+                    items(modelOptions) { (id, name) ->
                         ModelRow(id, name, selectedModel == id) {
-                            selectedModel = id
-                            showModelSelector = false
-                        }
-                    }
-                    item {
-                        Divider(modifier = Modifier.padding(vertical = 8.dp))
-                        Text("Native (Offline)", style = MaterialTheme.typography.labelLarge, color = OmniColors.Accent, modifier = Modifier.padding(8.dp))
-                    }
-                    items(nativeModels) { (id, name) ->
-                        ModelRow(id, name, selectedModel == id) {
-                            selectedModel = id
+                            viewModel.selectModel(id)
                             showModelSelector = false
                         }
                     }

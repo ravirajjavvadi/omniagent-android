@@ -65,6 +65,13 @@ fun DashboardScreen(
     var inputText by remember { mutableStateOf("") }
     val scrollState = rememberScrollState()
 
+    // NEW: Auto-redirect to setup if no models are found
+    LaunchedEffect(Unit) {
+        if (!downloadManager.isAnyModelDownloaded()) {
+            onSwitchTab(DashboardTab.MODEL_SELECTION)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -118,7 +125,8 @@ fun DashboardScreen(
                             onNavigate = onSwitchTab
                         )
                         DashboardTab.CYBER -> CyberSecScreen(viewModel = viewModel)
-                        DashboardTab.MODEL_SELECTION -> com.omniagent.app.ui.features.settings.ModelSelectionScreen(
+                        DashboardTab.MODEL_SELECTION -> ModelSelectionScreen(
+                            viewModel = viewModel,
                             downloadManager = downloadManager,
                             downloadState = downloadState,
                             onBack = { onSwitchTab(DashboardTab.CHAT) }

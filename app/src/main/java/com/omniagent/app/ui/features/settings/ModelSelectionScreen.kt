@@ -22,9 +22,11 @@ import com.omniagent.app.engine.ModelDownloadManager
 import com.omniagent.app.engine.ModelInfo
 import com.omniagent.app.engine.DownloadState
 import com.omniagent.app.ui.theme.OmniColors
+import com.omniagent.app.viewmodel.OmniAgentViewModel
 
 @Composable
 fun ModelSelectionScreen(
+    viewModel: OmniAgentViewModel,
     downloadManager: ModelDownloadManager,
     downloadState: DownloadState,
     onBack: () -> Unit
@@ -80,7 +82,10 @@ fun ModelSelectionScreen(
                     downloadState = downloadState,
                     isDownloaded = downloadManager.isModelFullyDownloaded(model.id),
                     onDownload = { downloadManager.startDownload(model.id) },
-                    onSelect = onBack
+                    onSelect = { 
+                        viewModel.selectModel(model.id)
+                        onBack() // This navigates back to Chat
+                    }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

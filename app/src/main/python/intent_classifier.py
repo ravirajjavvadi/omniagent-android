@@ -146,14 +146,6 @@ MODULE_DEFINITIONS = {
             "investor readiness", "lean canvas", "pitch deck", "venture"
         ]
     },
-    "duck": {
-        "name": "DuckDuckGo Online Engine",
-        "description": "online internet real-time cloud external powerful superior large model gpt4 claude mixtral llama3 duckduckgo search web",
-        "triggers": [
-            "use online engine", "switch to duck", "ask duck", "online model",
-            "cloud analysis", "large model query", "internet search"
-        ]
-    },
     "general": {
         "name": "General Context Handler",
         "description": "hi hello hey greetings help who are you what is this assistant support thanks thank you goodbye bye clear reset options features exam prepare study test prep tips advice question info information education guidance help student university college school",
