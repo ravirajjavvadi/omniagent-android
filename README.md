@@ -85,14 +85,24 @@ val mediaItem = MediaItem.fromUri(mediaUri)
 
 ---
 
-## 📸 Interface Preview
+## 📸 Interface Preview & Guide
+
+To fully showcase **OmniAgent**, please add screenshots of the following key screens:
+
+1.  **Dashboard**: The primary control center showing the current "Threat Level".
+2.  **AI Engine**: The screen showing reasoning steps or model selection.
+3.  **Logs**: The scrollable list of security events.
+4.  **Accessibility**: The screen where users grant "Neural Shield" permissions.
 
 > [!TIP]
-> Use the **Model Library** to manage your offline LLMs for maximum detection accuracy.
+> **To add your own screenshots:**
+> 1. Run the app and take screenshots on your phone/emulator.
+> 2. Save them as `screenshot1.png`, `screenshot2.png`, etc., in a folder named `screenshots/` in the root directory.
+> 3. Replace the `_[Image Placeholder]_` text below with the path to your image: `![Dashboard](screenshots/screenshot1.png)`
 
 | Premium Dashboard | AI Reasoning | Security Logs |
 | :---: | :---: | :---: |
-| _[Image Placeholder]_ | _[Image Placeholder]_ | _[Image Placeholder]_ |
+| ![Dashboard Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Dashboard) | ![AI Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Neural+Engine) | ![Logs Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Security+Logs) |
 
 ---
 
