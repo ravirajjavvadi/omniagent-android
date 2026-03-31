@@ -1,94 +1,112 @@
 # OmniAgent Android 🛡️🤖
 
-**OmniAgent** is a powerful, AI-driven cybersecurity and monitoring platform for Android. It leverages offline AI models to provide real-time threat detection, vulnerability scanning, and intelligent system monitoring without compromising user privacy.
+<p align="center">
+  <img src="https://img.shields.io/badge/Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android" />
+  <img src="https://img.shields.io/badge/Kotlin-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" alt="Kotlin" />
+  <img src="https://img.shields.io/badge/Jetpack%20Compose-4285F4?style=for-the-badge&logo=jetpack-compose&logoColor=white" alt="Jetpack Compose" />
+  <img src="https://img.shields.io/badge/AI-Offline-orange?style=for-the-badge" alt="Offline AI" />
+  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License MIT" />
+</p>
 
-## 🚀 Features
+**OmniAgent** is a state-of-the-art, AI-powered cybersecurity and system monitoring platform for Android. It integrates advanced **Offline AI Models** providing real-time threat detection, automated vulnerability scanning, and intelligent monitoring—all processed locally on-device to ensure maximum user privacy and zero-latency analysis.
 
-- **Offline AI Brain**: Download and run advanced AI models locally on your device for private, high-speed analysis.
-- **Neural Shield (Accessibility Scanner)**: Real-time scanning of links and UI elements to prevent phishing and malicious interactions.
-- **Signal Watch (Notification Listener)**: Monitors incoming notifications for potential security threats or sensitive data leaks.
-- **Omni Guardian Service**: A dedicated foreground service for continuous live threat monitoring and system health checks.
-- **Secure Logs**: Encrypted activity logs with built-in decryption tools for administrative review.
-- **Dynamic Dashboard**: A modern Compose-based UI for managing AI models, viewing reasoning steps, and performing vulnerability scans.
-- **Intelligent Widgets**: Quick-access widgets for instant scanning and status updates.
+---
 
-## 🏗️ Architecture
+## 🚀 Key Features
 
-OmniAgent is built using a **Clean Architecture** pattern to ensure modularity and high performance.
+*   **🧠 Local Neural Engine**: Download and execute sophisticated AI models (LLMs/GGUF) entirely offline using optimized NDK/C++ runtimes.
+*   **🛡️ Neural Shield**: Real-time accessibility-based scanner that analyzes UI elements and links for phishing or malicious patterns.
+*   **👁️ Signal Watch**: Continuous notification monitoring to intercept sensitive data leaks and security threats.
+*   **👮 Omni Guardian**: A persistent foreground protection service that monitors system health and background processes.
+*   **📊 Dynamic UI/UX**: A premium Material 3 experience with Jetpack Compose, featuring real-time reasoning visualization and threat level dashboards.
+
+---
+
+## 🏗️ Architecture Design
+
+OmniAgent follows **Clean Architecture** principles to maintain a separation of concerns between UI, Business Logic, and Data Management.
 
 ```mermaid
 graph TD
     UI[Jetpack Compose UI] --> VM[OmniAgent ViewModels]
-    VM --> Domain[Domain Layer - UseCases/Interfaces]
+    VM --> Domain[Domain Layer - UseCases]
     Domain --> Data[Data Layer - Repositories]
-    Data --> Room[(Room DB - Local Storage)]
+    Data --> Room[(Room DB - Scans & Logs)]
     Data --> Engine[Neural Engine - C++/Python]
-    Engine --> Models[Local GGUF/Bin Models]
+    Engine --> Models[Offline GGUF Models]
     
-    SubApp[Background Services] --> Guardian[Omni Guardian Monitoring]
+    SubApp[Background Services] --> Guardian[Guardian Service]
     Guardian --> Engine
-    SubApp --> Shield[Neural Shield Accessibility]
-    SubApp --> Watch[Signal Watch Notification Listener]
+    SubApp --> Shield[Neural Shield]
+    SubApp --> Watch[Signal Watcher]
 ```
 
-## 🛠️ Tech Stack & Pillars
+---
 
-- **The Brain**: A specialized **Neural Engine** using **C++ (NDK)** and **Chaquopy** to execute optimized AI models directly on the mobile CPU/GPU.
-- **The Shield**: High-privilege services including **Accessibility Services** for UI scanning and **Notification Listeners** for real-time safety monitoring.
-- **The Vault**: **Room Database** for encrypted local storage of logs and analysis results.
-- **Performance**: **WorkManager** for scheduled maintenance and **Foreground Services** for persistent protection.
+## 📁 Media & Asset Management
 
-## 🚀 Future Scope
+### Tracking the Intro Video
+The application features a cinematic introduction video used in the `SplashScreen`. You can find the source file here:
+- **Path**: `app/src/main/res/raw/omniagent.mp4`
 
-- [ ] **Multi-Model Support**: Support for larger LLMs via dynamic model swapping.
-- [ ] **Web Protection**: Integration with browser APIs for deep web threat scanning.
-- [ ] **Community Threat Database**: Opt-in anonymous sharing of detected threats to protect other users.
-- [ ] **Biometric Lockdown**: Instant app-lock if the AI detects suspicious device usage patterns.
+### How It's Referenced
+The video is loaded using **Media3 ExoPlayer** with hardware acceleration. To track or update this asset in code, reference the resource ID:
+```kotlin
+// Example reference in SplashScreen.kt
+val mediaUri = "android.resource://${context.packageName}/${R.raw.omniagent}"
+val mediaItem = MediaItem.fromUri(mediaUri)
+```
 
-## 📸 Screenshots
+---
 
-> [!TIP]
-> Add images of your Dashboard, Analysis Results, and Permission screens here to make your submission visually appealing.
+## 🛠️ Technical Pillars
 
-| Dashboard | Analysis Engine | Settings |
-| :---: | :---: | :---: |
-| _[Image Placeholder]_ | _[Image Placeholder]_ | _[Image Placeholder]_ |
+*   **Language**: 100% Kotlin with Jetpack Compose.
+*   **Engine**: **NDK (C++)** and **Chaquopy** for high-performance AI inference.
+*   **Security**: High-privilege **Accessibility Services** & **Notification Listeners**.
+*   **Persistence**: **Room Database** for encrypted local storage.
+*   **Scheduling**: **WorkManager** for periodic system audits.
+
+---
 
 ## 📦 Getting Started
 
 ### Prerequisites
-- **Android Studio Koala** or newer
-- **JDK 17+**
-- **Android SDK 33+** (Target SDK 34)
-- Physical device recommended (for testing Background Services and Accessibility features)
+- **Android Studio Ladybug** or newer.
+- **JDK 17+**.
+- **Android SDK 34** (Target SDK).
+- Physical device recommended for testing Accessibility & Notification features.
 
-### Installation
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/BhoompallyKalyanReddy/omniagent-android.git
-   ```
-2. Open the project in **Android Studio**.
-3. Sync the project with Gradle files.
-4. Run the `app` module on your device.
-
-### Usage
-1. **Initial Setup**: On the first launch, use the **Model Selection** tab to download an offline AI brain (approx. 50-200MB depending on the model).
-2. **Enable Permissions**: Grant **Accessibility** and **Notification Listener** permissions to enable **Neural Shield** and **Signal Watch**.
-3. **Scan**: Use the Dashboard to trigger a "Vulnerability Scan" or input custom queries for the AI to analyze.
-4. **Monitor**: View real-time security logs in the Logs tab.
-
-## 📄 License
-
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
-
-## 👥 Meet the Team
-
-Developed with ❤️ by:
-- **Bhoompally Kalyan Reddy** (Lead Developer)
-- **Raviraj**(Lead Devloper)
-- **Satvendra**(Researcher)
-- **Hrushikesh**(Researcher)
+### Installation & Setup
+1. **Clone**: `git clone https://github.com/BhoompallyKalyanReddy/omniagent-android.git`
+2. **Open**: Workspace in **Android Studio**.
+3. **Sync**: Let Gradle download dependencies (Neural Engine components).
+4. **Deploy**: Build and run the `app` module on a connected device.
 
 ---
 
-**Developed for Hackathon Purpose.**
+## 📸 Interface Preview
+
+> [!TIP]
+> Use the **Model Library** to manage your offline LLMs for maximum detection accuracy.
+
+| Premium Dashboard | AI Reasoning | Security Logs |
+| :---: | :---: | :---: |
+| _[Image Placeholder]_ | _[Image Placeholder]_ | _[Image Placeholder]_ |
+
+---
+
+## 📄 License
+
+This repository is distributed under the **MIT License**. Check [LICENSE](LICENSE) for full details.
+
+## 🤝 The Team
+
+Crafted with passion for the **Hackathon 2026** by:
+- 👑 **Bhoompally Kalyan Reddy** (Lead Developer)
+- 🚀 **Raviraj** (Lead Developer)
+- 🔍 **Satvendra** (Security Researcher)
+- 🧪 **Hrushikesh** (AI Researcher)
+
+---
+<p align="center">Built for the future of mobile security. 🛡️🌍</p>
