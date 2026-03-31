@@ -13,7 +13,7 @@ Currently, the following versions of **OmniAgent** are receiving security update
 
 **OmniAgent** is built to protect users. If you discover a security vulnerability, please do NOT create a public issue. Instead, follow these steps:
 
-1. **Email us**: Send a detailed report to [your-email@example.com] (Optional: Add "ATTN: Security Disclosure" in subject).
+1. **Email us**: Send a detailed report to [kalyanreddyladdu@gmail.com] (Optional: Add "ATTN: Security Disclosure" in subject).
 2. **Details**: Include a summary of the vulnerability, steps to reproduce, and potential impact.
 3. **Response**: We will acknowledge your report within 48 hours and provide an estimated timeline for a fix.
 
