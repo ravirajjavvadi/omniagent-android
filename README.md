@@ -102,7 +102,7 @@ To fully showcase **OmniAgent**, please add screenshots of the following key scr
 
 | Premium Dashboard | AI Reasoning | Security Logs |
 | :---: | :---: | :---: |
-| ![Dashboard Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Dashboard) | ![AI Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Neural+Engine) | ![Logs Placeholder](https://via.placeholder.com/200x400/101010/808080?text=Security+Logs) |
+| ![Dashboard Screenshot](screenshots/dashboard.jpeg) | ![AI Reasoning Screenshot](screenshots/ai_engine.jpeg) | ![Security Logs Screenshot](screenshots/security_logs.jpeg) |
 
 ---
 
