@@ -9,8 +9,11 @@
 app/build/
 .gradle/
 local.properties
-build_log*.txt
-kotlin_errors.txt
+*.log
+*.txt
+!README.md
+!LICENSE
+!SECURITY.md
 app/src/main/cpp/llama.zip
 
 # Android Studio / IntelliJ IDEA
